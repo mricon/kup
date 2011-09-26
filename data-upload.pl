@@ -39,7 +39,7 @@ use bytes;
 use File::Temp qw(tempdir);
 use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError) ;
 use BSD::Resource;
-use Fcntl qw(:flock);
+use Fcntl qw(:DEFAULT :flock);
 
 my $data_path = '/home/hpa/kernel.org/test/pub';
 my $sign_path = '/home/hpa/kernel.org/test/sign';
@@ -81,7 +81,9 @@ sub unlock_tree()
 sub url_unescape($)
 {
     my($s) = @_;
-    my $c, $i, $o;
+    my $c;
+    my $i;
+    my $o;
 
     for ($i = 0; $i < length($s); $i++) {
 	$c = substr($s, $i, 1);
@@ -204,9 +206,8 @@ sub make_compressed_data()
 		['/usr/bin/xz', '-9']);
     my @exts = ('.gz', '.bz2', '.xz');
     my $nworkers = 0;
-    my $i, @c, $e;
 
-    for ($i = 0; $i < scalar @cmds; $i++) {
+    for (my $i = 0; $i < scalar @cmds; $i++) {
 	my @c = @{$cmds[$i]};
 	my $e = $exts[$i];
 
