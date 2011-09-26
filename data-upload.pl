@@ -35,6 +35,7 @@
 use strict;
 use warnings;
 use bytes;
+use Encode qw(encode decode);
 
 use File::Temp qw(tempdir);
 use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError) ;
@@ -90,7 +91,7 @@ sub url_unescape($)
 	if ($c eq '%') {
 	    $c = substr($s, $i+1, 2);
 	    return undef if (length($c) != 2);
-	    $o .= chr(hex $c);
+	    $o .= pack("C", hex $c);
 	    $i += 2;
 	} else {
 	    $o .= $c;
@@ -123,14 +124,18 @@ sub parse_line($)
 }
 
 # This returns true if the given argument is a valid filename in its
-# canonical form.  Double slashes, relative paths, and control
-# characters are not permitted.
+# canonical form.  Double slashes, relative paths, control characters,
+# and malformed UTF-8 is not permitted.
 sub is_valid_file_name($)
 {
-    my($f) = @_;
+    no bytes;
+    use feature 'unicode_strings';
+
+    my($b) = @_;
+    my $f = decode('UTF-8', $b, Encode::FB_DEFAULT);
 
     return 0 if ($f !~ m:^/:);
-    return 0 if ($f =~ m:[\0-\x1f\x7f-\x9f]:);
+    return 0 if ($f =~ m:[\x{0000}-\x{001f}\x{007f}-\x{00a0}\x{fffd}-\x{ffff}]:);
     return 0 if ($f =~ m:/$:);
     return 0 if ($f =~ m://:);
     return 0 if ($f =~ m:/(\.|\.\.)(/|$):);
