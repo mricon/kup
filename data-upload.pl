@@ -199,13 +199,17 @@ sub make_compressed_data()
     die if (!$have_data);
 
     my %workers;
-    my @jobs =
-	("/bin/gzip -9 < \Q${tmpdir}/data\E > \Q${tmpdir}/data.gz\E",
-	 "/usr/bin/bzip2 -9 < \Q${tmpdir}/data\E > \Q${tmpdir}/data.bz2\E",
-	 "/usr/bin/xz -9 < \Q${tmpdir}/data\E > \Q${tmpdir}/data.xz\E");
+    my @cmds = (['/bin/gzip', '-9'],
+		['/usr/bin/bzip2', '-9'],
+		['/usr/bin/xz', '-9']);
+    my @exts = ('.gz', '.bz2', '.xz');
     my $nworkers = 0;
+    my $i, @c, $e;
 
-    foreach my $j (@jobs) {
+    for ($i = 0; $i < scalar @cmds; $i++) {
+	my @c = @{$cmds[$i]};
+	my $e = $exts[$i];
+
 	my $w = fork();
 
 	if (!defined($w)) {
@@ -213,7 +217,15 @@ sub make_compressed_data()
 	}
 
 	if ($w == 0) {
-	    exec($j);
+	    sysopen(RAW, $tmpdir.'/data', O_RDONLY)
+		or exit 127;
+	    sysopen(OUT, $tmpdir.'/data'.$e, O_WRONLY, 0002)
+		or exit 127;
+
+	    open(STDIN,  '<&', \*RAW) or exit 127;
+	    open(STDOUT, '>&', \*OUT) or exit 127;
+
+	    exec(@c);
 	    exit 127;
 	}
 
