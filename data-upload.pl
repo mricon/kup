@@ -17,8 +17,13 @@
 #	- updates the current signature blob (follows immediately)
 # PUT pathname
 #	- installs the current data blob as <pathname>
+# MKDIR pathname
+#	- creates a new directory
 # MOVE old-path:new-path
 #	- moves <old-path> to <new-path>
+#
+# For future consideration:
+#
 # LINK old-path:new-path
 #	- hard links <old-path> to <new-path>
 # SYMLINK old-path:new-path
@@ -34,9 +39,11 @@ use bytes;
 use File::Temp qw(tempdir);
 use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError) ;
 use BSD::Resource;
+use Fcntl qw(:flock);
 
 my $data_path = '/home/hpa/kernel.org/test/pub';
 my $sign_path = '/home/hpa/kernel.org/test/sign';
+my $lock_file = '/home/hpa/kernel.org/test/lock';
 my $tmp_path  = '/var/tmp/upload';
 my $max_data  = 1*1024*1024*1024;
 my $bufsiz    = 1024*1024;
@@ -48,6 +55,28 @@ my $tmpdir = tempdir(DIR => $tmp_path, CLEANUP => 1);
 
 my $have_data = 0;
 my $have_sign = 0;
+
+my $lock_fd   = undef;
+
+sub lock_tree()
+{
+    if (!defined($lock_fd)) {
+	open($lock_fd, '<', $lock_file)
+	    or die "Cannot open lock file\n";
+	flock($lock_fd, LOCK_EX)
+	    or die "Cannot get file tree lock\n";
+    } else {
+	die "File tree is already locked\n";
+    }
+}
+
+sub unlock_tree()
+{
+    if (defined($lock_fd)) {
+	close($lock_fd);
+	undef $lock_fd;
+    }
+}
 
 sub url_unescape($)
 {
@@ -252,6 +281,8 @@ sub put_file(@)
 	die "400 Invalid filename in PUT command\n";
     }
 
+    lock_tree();
+
     if ($file =~ /^(.*)\.gz$/) {
 	my $stem = $1;
 	make_compressed_data();
@@ -276,7 +307,32 @@ sub put_file(@)
 	}
     }
 
+    unlock_tree();
     cleanup();
+}
+
+sub do_mkdir(@)
+{
+    my @args = @_;
+
+    if (scalar(@args) != 1) {
+	die "400 Bad MKDIR command\n";
+    }
+
+    my($file) = @args;
+
+    if (!is_valid_filename($file)) {
+	die "400 Invalid filename in MKDIR command\n";
+    }
+
+    if ($file =~ /\.(gz|bz2|xz|sign)$/) {
+	die "400 Protected filename space\n";
+    }
+
+    # No need to lock/unlock around a single atomic operation
+    if (!mkdir($file, 002)) {
+	die "400 Failed to MKDIR\n";
+    }
 }
 
 sub move_file(@)
@@ -293,23 +349,53 @@ sub move_file(@)
 	die "400 Invalid filename in MOVE command\n";
     }
 
-    if ($
+    if ($from =~ /\.(bz2|xz|sign)$/) {
+	die "MOVE of individual .bz2, .xz, or .sign files not supported\n";
+    }
+    if ($to =~ /\.(bz2|xz|sign)$/) {
+	die "MOVE to filename ending in .bz2, .xz or .sign\n";
+    }
+    
+    if ($from =~ /\.gz$/ && $to !~ /\.gz$/) {
+	die "MOVE of .gz file must itself end in .gz\n";
+    }
+    if ($from !~ /\.gz$/ && $to =~ /\.gz$/) {
+	die "MOVE of non-.gz file must not end in .gz\n";
+    }
 
-}
+    lock_tree();
 
-sub link_file(@)
-{
-    ...;
-}
+    if (-d $data_path.$from) {
+	if (!rename($data_path.$from, $data_path.$to)) {
+	    die "MOVE of directory failed\n";
+	}
+    } elsif (-f $data_path.$from) {
+	if (-d $data_path.$to) {
+	    $from =~ m:^(|.*/)([^/]+)$:;
+	    my $fname = $2;
+	    $to .= '/'.$fname;
+	}
 
-sub symlink_file(@)
-{
-    ...;
-}
+	if (!rename($data_path.$from, $data_path.$to)) {
+	    die "MOVE of plain file failed\n";
+	}
+	if ($from =~ /^(.*)\.gz$/) {
+	    my $from_stem = $1;
 
-sub delete_file(@)
-{
-    ...;
+	    die if ($to !~ /^(.*)\.gz$/); # Should already be checked
+	    my $to_stem = $1;
+
+	    if (!rename($data_path.$from_stem.'.bz2',  $data_path.$to_stem.'.bz2') ||
+		!rename($data_path.$from_stem.'.xz',   $data_path.$to_stem.'.xz') ||
+		!rename($data_path.$from_stem.'.sign', $data_path.$to_stem.'.sign')) {
+		die "MOVE of auxilliary file failed\n";
+	    }
+	}
+    } else {
+	die "MOVE of non-directory/non-file not currently supported\n";
+    }
+
+    unlock_tree();
 }
 
 my $line;
@@ -331,14 +417,10 @@ while (defined($line = <STDIN>)) {
 	get_sign_data(@args);
     } elsif ($cmd eq 'PUT') {
 	put_file(@args);
+    } elsif ($cmd eq 'MKDIR') {
+	do_mkdir(@args);
     } elsif ($cmd eq 'MOVE') {
 	move_file(@args);
-    } elsif ($cmd eq 'LINK') {
-	link_file(@args);
-    } elsif ($cmd eq 'SYMLINK') {
-	symlink_file(@args);
-    } elsif ($cmd eq 'DELETE') {
-	delete_file(@args);
     } else {
 	die "400 Invalid command\n";
 	exit 1;
