@@ -317,6 +317,14 @@ sub cmd_move()
     if (!is_valid_filename($from)) {
 	die "$0: invalid pathname: $from\n";
     }
+
+    if ($to =~ /\/$/) {
+	# Syntactic sugar: allow specifying a directory only by ending in /
+	if ($from =~ m:^(.*/|)([^/]+)$:) {
+	    $to .= $2;
+	}
+    }
+
     if (!is_valid_filename($to)) {
 	die "$0: invalid pathname: $to\n";
     }
