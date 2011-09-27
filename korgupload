@@ -421,6 +421,19 @@ sub make_compressed_data()
     }
 }
 
+sub make_timestamps_match()
+{
+    die if (!$have_data || !$have_sign);
+
+    my $now = time();
+    
+    utime($now, $now, $tmpdir.'/data');
+    utime($now, $now, $tmpdir.'/data.gz');
+    utime($now, $now, $tmpdir.'/data.bz2');
+    utime($now, $now, $tmpdir.'/data.xz');
+    utime($now, $now, $tmpdir.'/sign');
+}
+
 sub cleanup()
 {
     unlink($tmpdir.'/data');
@@ -497,6 +510,7 @@ sub put_file(@)
     if ($file =~ /^(.*)\.gz$/) {
 	my $stem = $1;
 	make_compressed_data();
+	make_timestamps_match();
 
 	lock_tree();
 	if (!rename($tmpdir.'/data.gz',  $data_path.$stem.'.gz') ||
@@ -513,6 +527,8 @@ sub put_file(@)
     } elsif ($file =~ /\.(sign|bz2|xz)$/) {
 	fatal("400 Cannot install .sign, .bz2 or .xz files directly");
     } else {
+	make_timestamps_match();
+
 	lock_tree();
 	if (!rename($tmpdir.'/data', $data_path.$file) ||
 	    !rename($tmpdir.'/sign', $data_path.$file.'.sign')) {
