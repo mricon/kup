@@ -22,13 +22,13 @@
 #	- creates a new directory
 # MOVE old-path new-path
 #	- moves <old-path> to <new-path>
+# LINK old-path:new-path
+#	- hard links <old-path> to <new-path>
 # DONE
 #	- optional command, terminates transaction
 #
 # For future consideration:
 #
-# LINK old-path:new-path
-#	- hard links <old-path> to <new-path>
 # SYMLINK old-path:new-path
 #	- symlinks <old-path> to <new-path>
 # DELETE old-path
@@ -600,6 +600,17 @@ sub do_mkdir(@)
     unlock_tree();
 }
 
+sub do_rename($$) {
+    my($f,$t) = @_;
+
+    return rename($f, $t);
+}
+sub do_link($$) {
+    my($f,$t) = @_;
+
+    return link($f, $t);
+}
+
 sub move_or_link_file($@)
 {
     my($cmd, @args) = @_;
@@ -608,7 +619,7 @@ sub move_or_link_file($@)
 	fatal("Bad $cmd command");
     }
 
-    my $op = ($cmd eq 'MOVE') ? \&rename : \&link;
+    my $op = ($cmd eq 'MOVE') ? \&do_rename : \&do_link;
 
     my($from, $to) = @args;
 
