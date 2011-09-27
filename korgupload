@@ -277,7 +277,7 @@ sub get_tar_data(@)
     syslog(LOG_INFO, "tar ref ${sha}");
 
     git_cmd_try {
-	$repo->command_noisy('archive', '--prefix='.$prefix,
+	$repo->command_noisy('archive', '--format=tar', '--prefix='.$prefix,
 			     '-o', $tmpdir.'/data', $ref);
     } "400 Failed to acquire tarball\n";
 		  
