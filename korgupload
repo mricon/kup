@@ -630,7 +630,9 @@ sub move_file(@)
 
     lock_tree();
 
-    if (-d $data_path.$from) {
+    if (!-e $data_path.$from) {
+	fatal("MOVE of nonexistent object");
+    } elsif (-d $data_path.$from) {
 	if (!rename($data_path.$from, $data_path.$to)) {
 	    fatal("MOVE of directory failed");
 	}
