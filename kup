@@ -50,7 +50,7 @@ sub usage($) {
 sub is_clean_string($)
 {
     no bytes;
-    use feature 'unicode_strings';
+    # use feature 'unicode_strings';	-- is this needed here?
 
     my($b) = @_;
     my $f = decode('UTF-8', $b, Encode::FB_DEFAULT);
