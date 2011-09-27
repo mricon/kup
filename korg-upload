@@ -47,16 +47,19 @@ use Git;
 my $data_path = '/home/hpa/kernel.org/test/pub';
 my $git_path  = '/home/hpa/kernel.org/test/git';
 my $lock_file = '/home/hpa/kernel.org/test/lock';
-my $tmp_path  = '/var/tmp/upload';
+my $tmp_path  = '/home/hpa/kernel.org/test/tmp';
 my $max_data  = 1*1024*1024*1024;
 my $bufsiz    = 1024*1024;
 
-%ENV = ('PATH=/bin:/usr/bin', 'LANG=C', 'SHELL=/bin/sh');
+%ENV = ('PATH' => '/bin:/usr/bin',
+	'LANG' => 'C',
+	'SHELL' => '/bin/sh');
 
-umask(077);
 setrlimit(RLIMIT_FSIZE, $max_data, RLIM_INFINITY);
 
+umask(077);
 my $tmpdir = tempdir(DIR => $tmp_path, CLEANUP => 1);
+umask(002);
 
 my $have_data = 0;
 my $have_sign = 0;
@@ -92,7 +95,9 @@ sub url_unescape($)
 
     for ($i = 0; $i < length($s); $i++) {
 	$c = substr($s, $i, 1);
-	if ($c eq '%') {
+	if ($c eq '+') {
+	    $o .= ' ';
+	} elsif ($c eq '%') {
 	    $c = substr($s, $i+1, 2);
 	    return undef if (length($c) != 2);
 	    $o .= pack("C", hex $c);
@@ -124,7 +129,7 @@ sub parse_line($)
 	push(@args, $a);
     }
 
-    return @args;
+    return ($cmd, @args);
 }
 
 # Return true if the supplied string is valid UTF-8 without special
@@ -144,7 +149,7 @@ sub is_clean_string($)
 # This returns true if the given argument is a valid filename in its
 # canonical form.  Double slashes, relative paths, control characters,
 # and malformed UTF-8 is not permitted.
-sub is_valid_file_name($)
+sub is_valid_filename($)
 {
     my($f) = @_;
 
@@ -167,7 +172,7 @@ sub get_raw_data(@)
     }
 
     my $output = $tmpdir.'/data';
-    anyuncompress(STDIN => $output,
+    anyuncompress(\*STDIN => $output,
 		  BinModeOut => 1,
 		  InputLength => ($args[0] + 0),
 		  Append => 0,
@@ -229,12 +234,14 @@ sub get_tar_data(@)
 	die "400 No such git tree\n";
     }
 
+    my $repo;
     git_cmd_try {
-	my $repo = Git->repository(Repository => $git_path.$tree);
+	$repo = Git->repository(Repository => $git_path.$tree);
     } "400 Invalid git repository\n";
 
-    if (!is_clean_string($ref) || $ref =~ /^\-/) {
-	die "400 Invalid tree-ish reference\n";
+    my ($sha, $type, $len) = check_ref($repo, $ref);
+    if ($type !~ /^(tree|commit|tag)$/) {
+	die "400 Invalid tree reference\n";
     }
 
     git_cmd_try {
@@ -265,16 +272,17 @@ sub get_diff_data(@)
 	die "400 No such git tree\n";
     }
 
+    my $repo;
     git_cmd_try {
-	my $repo = Git->repository(Repository => $git_path.$tree);
+	$repo = Git->repository(Repository => $git_path.$tree);
     } "400 Invalid git repository\n";
 
-    my ($sha1, $type1, $len1) = check_ref($ref1);
+    my ($sha1, $type1, $len1) = check_ref($repo, $ref1);
     if ($type1 !~ /^(commit|tag)$/) {
 	die "400 Invalid commit reference\n";
     }
     
-    my ($sha2, $type2, $len2) = check_ref($ref2);
+    my ($sha2, $type2, $len2) = check_ref($repo, $ref2);
     if ($type2 !~ /^(commit|tag)$/) {
 	die "400 Invalid commit reference\n";
     }
@@ -304,13 +312,13 @@ sub get_sign_data(@)
     }
 
     my $output = $tmpdir.'/sign';
-    anyuncompress STDIN => $output,
+    anyuncompress(\*STDIN => $output,
 		  BinModeOut => 1,
 		  InputLength => ($args[0] + 0),
 		  Append => 0,
 		  AutoClose => 0,
 		  Transparent => 1,
-		  BlockSize => $bufsiz
+		  BlockSize => $bufsiz)
 	or die "400 SIGN decompression error: $AnyUncompressError\n";
 		  
     if ((-s $output) >= 65536) {
