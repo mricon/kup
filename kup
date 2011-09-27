@@ -1,0 +1,246 @@
+#!/usr/bin/perl -T
+#
+# kernel.org bulk file upload client
+#
+# Usage:
+#
+# kup put local_file remote_file signature
+# kup put --tar [--prefix=] remote_tree ref remote_file signature
+# kup put --diff remote_tree ref1 ref2 remote_file signature
+# kup mkdir remote_name
+# kup move old_path new_path
+#
+# Common options:
+# --batch (-b)	- send command stream to stdout instead of a command
+# --rsh (-e)	- command to use (overrides KUP_RSH)
+#
+
+use strict;
+use warnings;
+use bytes;
+use Encode qw(encode decode);
+
+my $blksiz = 1024*1024;
+
+# Global options
+my %opt = (
+    'rsh'   => 'ssh upload.kernel.org',
+    'batch' => 0,
+    );
+
+if (defined $ENV{'KUP_RSH'}) {
+    $opt{'rsh'} = $ENV{'KUP_RSH'};
+}
+
+# Usage description
+sub usage($) {
+    my($err) = @_;
+
+    print STDERR "$0 put local_file remote_file signature\n";
+    print STDERR "$0 kup put --tar [--prefix=] remote_tree ref remote_file signature\n";
+    print STDERR "$0 put --diff remote_tree ref1 ref2 remote_file signature\n";
+    print STDERR "$0 mkdir remote_name\n";
+    print STDERR "$0 move old_path new_path\n";
+
+    exit $err;
+}
+
+# Return true if the supplied string is valid UTF-8 without special
+# characters
+sub is_clean_string($)
+{
+    no bytes;
+    use feature 'unicode_strings';
+
+    my($b) = @_;
+    my $f = decode('UTF-8', $b, Encode::FB_DEFAULT);
+
+    return 0 if ($f =~ m:[\x{0000}-\x{001f}\x{007f}-\x{00a0}\x{fffd}-\x{ffff}]:);
+    return 1;
+}
+
+# This returns true if the given argument is a valid filename in its
+# canonical form.  Double slashes, relative paths, control characters,
+# and malformed UTF-8 is not permitted.
+sub is_valid_filename($)
+{
+    my($f) = @_;
+
+    return 0 if (!is_clean_string($f));
+    return 0 if ($f !~ m:^/:);
+    return 0 if ($f =~ m:/$:);
+    return 0 if ($f =~ m://:);
+    return 0 if ($f =~ m:/(\.|\.\.)(/|$):);
+
+    return 1;
+}
+
+# Parse global options
+sub parse_global_options($)
+{
+    my($argref) = @_;
+
+    while (${$argref}[0] =~ /^-/) {
+	my $arg = shift(@{$argref});
+
+	if ($arg eq '-b' || $arg eq '--batch') {
+	    $opt{'batch'} = 1;
+	} elsif ($arg eq '-e' || $arg eq '--rsh') {
+	    $opt{'rsh'} = shift(@{$argref});
+	} elsif ($arg eq '-h' || $arg eq '--help') {
+	    usage(0);
+	} elsif ($arg =~ /^(\-e|\-\-rsh\=)(.+)$/) {
+	    $opt{'rsh'} = $2;
+	} else {
+	    die "$0: unknown option: $arg\n";
+	}
+    }
+}
+
+# Encode a string
+sub url_encode($)
+{
+    my($s) = @_;
+
+    # Hack to encode an empty string
+    return '%' if ($s eq '');
+
+    my $o = '';
+
+    foreach my $c (unpack("C*", $s)) {
+	if ($c > 32 && $c < 126 && $c != 43) {
+	    $o .= chr($c);
+	} elsif ($c == 32) {
+	    $o .= '+';
+	} else {
+	    $o .= sprintf("%%%02X", $c);
+	}
+    }
+
+    return $o;
+}
+
+# Configure the output stream
+sub setup_output()
+{
+    # In batch mode, we dump the output to stdout so the user can
+    # aggregate it best they wish
+    unless ($opt{'batch'}) {
+	open(STDOUT, '|-', $opt{'rsh'})
+	    or die "$0: cannot execute rsh command ", $opt{'rsh'}, "\n";
+    }
+    binmode(STDOUT);
+}
+
+
+sub cat_file($$) {
+    my($cmd, $file) = @_;
+
+    my $data;
+    open($data, '<', $file)
+	or die "$0: cannot open: $file: $!\n";
+    if (! -f $data) {
+	die "$0: not a plain file: $file\n";
+    }
+    my $size = -s _;
+
+    print "${cmd} ${size}\n";
+
+    my $blk;
+    my $len;
+
+    while ($size) {
+	$len = ($size < $blksiz) ? $size : $blksiz;
+	$len = read($data, $blk, $len);
+
+	if (!$len) {
+	    die "$0: premature end of data (file changed?): $file\n";
+	}
+
+	print $blk;
+    }
+
+    close($data);
+}
+
+# PUT command
+sub cmd_put()
+{
+    my $file = shift @ARGV;
+
+    if ($file eq '-t' || $file eq '--tar') {
+	# tar hack
+
+	my $remote_tree = shift @ARGV;
+	my $prefix = '';
+
+	if ($remote_tree eq '-p' || $remote_tree eq '--prefix') {
+	    $prefix = shift @ARGV;
+	    $remote_tree = shift @ARGV;
+	} elsif ($remote_tree =~ /^(\-p|\-\-prefix=)(.+)$/) {
+	    $prefix = $2;
+	    $remote_tree = shift @ARGV;
+	}
+
+	my $ref = shift(@ARGV);
+
+	if (!defined($ref) ||
+	    !is_valid_filename($remote_tree) ||
+	    !is_clean_string($ref)) {
+	    usage(1);
+	}
+
+	print 'TAR ', url_encode($remote_tree), ' ',
+		url_encode($ref), ' ', url_encode($prefix), "\n";
+    } elsif ($file eq '-d' || $file eq '--diff') {
+	# diff hack
+
+	my $remote_tree = shift @ARGV;
+	my $prefix = '';
+
+	my $ref1 = shift(@ARGV);
+	my $ref2 = shift(@ARGV);
+
+	if (!defined($ref2) ||
+	    !is_valid_filename($remote_tree) ||
+	    !is_clean_string($ref1) ||
+	    !is_clean_string($ref2)) {
+	    usage(1);
+	}
+
+	print 'DIFF ', url_encode($remote_tree), ' ',
+		url_encode($ref1), ' ', url_encode($ref2), "\n";
+    } elsif ($file =~ /^\-/) {
+	die "$0: unknown option to put command: $file\n";
+    } else {
+	# Plain data blob.  We don't actively attempt to compress it
+	# since ssh usually has a layer of compression, but if it is
+	# already a compressed file we send it as-is and let the
+	# server decompress it.
+
+	cat_file('DATA', $file);
+    }
+
+    my $sign   = shift @ARGV;
+    my $remote = shift @ARGV;
+
+    if (!defined($remote) || !is_valid_filename($remote)) {
+	usage(1);
+    }
+
+    cat_file('SIGN', $sign);
+
+    print "PUT ${remote}\n";
+}
+
+# MKDIR command
+sub cmd_mkdir()
+{
+    ...;
+}
+
+# MOVE command
+sub cmd_move()
+{
+    ...;
+}
