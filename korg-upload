@@ -428,11 +428,11 @@ sub put_file(@)
 	die "400 Invalid filename in PUT command\n";
     }
 
-    lock_tree();
-
     if ($file =~ /^(.*)\.gz$/) {
 	my $stem = $1;
 	make_compressed_data();
+
+	lock_tree();
 	if (!rename($tmpdir.'/data.gz',  $data_path.$stem.'.gz') ||
 	    !rename($tmpdir.'/data.bz2', $data_path.$stem.'.bz2') ||
 	    !rename($tmpdir.'/data.xz',  $data_path.$stem.'.xz') ||
@@ -443,18 +443,20 @@ sub put_file(@)
 	    unlink($data_path.$stem.'.sign');
 	    die "400 Failed to install files\n";
 	}
+	unlock_tree();
     } elsif ($file =~ /\.(sign|bz2|xz)$/) {
 	die "400 Cannot install .sign, .bz2 or .xz files directly\n";
     } else {
+	lock_tree();
 	if (!rename($tmpdir.'/data', $data_path.$file) ||
 	    !rename($tmpdir.'/sign', $data_path.$file.'.sign')) {
 	    unlink($data_path.$file);
 	    unlink($data_path.$file.'.sign');
 	    die "400 Failed to install files\n";
 	}
+	unlock_tree();
     }
 
-    unlock_tree();
     cleanup();
 }
 
