@@ -667,7 +667,7 @@ sub move_file(@)
 
 	    if ((-e $data_path.$to && ! -f _) ||
 		(-e $data_path.$to.'.sign' && ! -f _)) {
-		fatal("Trying to overwrite non-directory");
+		fatal("Trying to overwrite non-file");
 	    }
 
 	    if (!rename($data_path.$from, $data_path.$to) ||
