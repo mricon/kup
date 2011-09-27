@@ -574,6 +574,8 @@ while (defined($line = <STDIN>)) {
     # Ignore lines with only whitespace or starting with #
     next if ($line =~ /^\s*(|\#.*)$/);
 
+    chomp $line;
+
     if (!is_clean_string($line) || length($line) > 4096) {
 	syslog(LOG_ERR, "Received garbage input");
 	fatal("400 Invalid command");
@@ -607,3 +609,6 @@ while (defined($line = <STDIN>)) {
 	fatal("400 Invalid command");
     }
 }
+
+syslog(LOG_NOTICE, "Session completed successfully");
+exit 0;
