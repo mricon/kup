@@ -12,12 +12,24 @@ my $blksiz = 1024*1024;
 
 # Global options
 my %opt = (
-    'rsh'   => 'ssh upload.kernel.org',
+    'rsh'   => 'ssh -a -x -k -T upload.kernel.org',
     'batch' => 0,
     );
 
+# This is a client, and so running with tainting on is a bit overly
+# paranoid.  As a result we have to explicitly untaint certain bits from
+# the environment.
+sub untaint($) {
+    my($s) = @_;
+
+    $s =~ /^(.*)$/;
+    return $1;
+}
+
+$ENV{'PATH'} = untaint($ENV{'PATH'});
+
 if (defined $ENV{'KUP_RSH'}) {
-    $opt{'rsh'} = $ENV{'KUP_RSH'};
+    $opt{'rsh'} = untaint($ENV{'KUP_RSH'});
 }
 
 # We process the command set twice, once as a dry run and one for real,
