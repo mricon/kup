@@ -115,13 +115,12 @@ sub url_unescape($)
 {
     my($s) = @_;
     my $c;
-    my $i;
     my $o;
 
     # A single isolated % sign means an empty string
     return '' if ($s eq '%');
 
-    for ($i = 0; $i < length($s); $i++) {
+    for (my $i = 0; $i < length($s); $i++) {
 	$c = substr($s, $i, 1);
 	if ($c eq '+') {
 	    $o .= ' ';
