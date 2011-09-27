@@ -3,7 +3,8 @@
 # This script should be run with the permissions of the user that
 # is uploading files.
 #
-# Arguments are :-separated and URL-escaped.
+# Arguments are whitespace-separated and URL-escaped; a single % means
+# a null argument.
 #
 # It accepts the following commands:
 #
@@ -114,6 +115,9 @@ sub url_unescape($)
     my $i;
     my $o;
 
+    # A single isolated % sign means an empty string
+    return '' if ($s eq '%');
+
     for ($i = 0; $i < length($s); $i++) {
 	$c = substr($s, $i, 1);
 	if ($c eq '+') {
@@ -136,12 +140,12 @@ sub parse_line($)
     my($line) = @_;
     chomp $line;
 
-    if ($line !~ /^([A-Z0-9_]+)\s+(\S*)$/) {
+    if ($line !~ /^([A-Z0-9_]+)\s+(|\S|\S.*\S|)\s*$/) {
 	return undef;		# Invalid syntax
     }
 
     my $cmd = $1;
-    my @rawargs = split(/\:/, $2);
+    my @rawargs = split(/\s+/, $2);
 
     my @args = ();
     foreach my $ra (@rawargs) {
