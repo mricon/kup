@@ -70,7 +70,7 @@ my $have_data = 0;
 my $have_sign = 0;
 
 sub my_username() {
-    my $whoami = getpid();
+    my $whoami = getuid();
     my ($name,$passwd,$uid,$gid,$quota,$comment,$gcos,$dir,$shell,$expire) = getpwuid($whoami);
 
     return (defined($name) && $whoami == $uid) ? $name : $whoami;
