@@ -563,7 +563,7 @@ sub do_mkdir(@)
     }
 
     # No need to lock/unlock around a single atomic operation
-    if (!mkdir($data_path.$file, 002)) {
+    if (!mkdir($data_path.$file, 0777)) {
 	fatal("400 Failed to MKDIR");
     }
 }
