@@ -551,6 +551,9 @@ sub move_file(@)
 
 my $line;
 while (defined($line = <STDIN>)) {
+    # Ignore lines with only whitespace or starting with #
+    next if ($line =~ /^\s*(|\#.*)$/);
+
     my($cmd, @args) = parse_line($line);
 
     if (!defined($cmd)) {
