@@ -1,4 +1,4 @@
-#!/usr/bin/perl -T
+#!/usr/bin/perl
 #
 # This script should be run with the permissions of the user that
 # is uploading files.
@@ -21,6 +21,8 @@
 #	- creates a new directory
 # MOVE old-path:new-path
 #	- moves <old-path> to <new-path>
+# DONE
+#	- optional command, terminates transaction
 #
 # For future consideration:
 #
@@ -352,7 +354,7 @@ sub make_compressed_data()
 	if ($w == 0) {
 	    sysopen(RAW, $tmpdir.'/data', O_RDONLY)
 		or exit 127;
-	    sysopen(OUT, $tmpdir.'/data'.$e, O_WRONLY, 0002)
+	    sysopen(OUT, $tmpdir.'/data'.$e, O_WRONLY|O_CREAT|O_TRUNC, 0666)
 		or exit 127;
 
 	    open(STDIN,  '<&', \*RAW) or exit 127;
@@ -360,7 +362,7 @@ sub make_compressed_data()
 	    close(RAW);
 	    close(OUT);
 
-	    exec(@c);
+	    exec {$c[0]} @c;
 	    exit 127;
 	}
 
@@ -570,6 +572,8 @@ while (defined($line = <STDIN>)) {
 	do_mkdir(@args);
     } elsif ($cmd eq 'MOVE') {
 	move_file(@args);
+    } elsif ($cmd eq 'DONE') {
+	last;
     } else {
 	die "400 Invalid command\n";
 	exit 1;
