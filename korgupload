@@ -197,7 +197,7 @@ sub get_raw_data(@)
     my @args = @_;
 
     if (scalar(@args) != 1 || $args[0] !~ /^[0-9]+$/) {
-	fatal("400 Bad DATA command");
+	fatal("Bad DATA command");
     }
 
     my $output = $tmpdir.'/data';
@@ -208,7 +208,7 @@ sub get_raw_data(@)
 		  AutoClose => 0,
 		  Transparent => 1,
 		  BlockSize => $bufsiz)
-	or fatal("400 DATA decompression error: $AnyUncompressError");
+	or fatal("DATA decompression error: $AnyUncompressError");
 		  
     $have_data = 1;
 }
@@ -248,32 +248,32 @@ sub get_tar_data(@)
     my @args = @_;
 
     if (scalar(@args) != 3) {
-	fatal("400 Bad TAR command");
+	fatal("Bad TAR command");
     }
 
     my($tree, $ref, $prefix) = @args;
 
     if (!is_valid_filename($tree)) {
-	fatal("400 Invalid pathname in TAR command");
+	fatal("Invalid pathname in TAR command");
     }
 
     if (!is_clean_string($prefix)) {
-	fatal("400 Invalid prefix string");
+	fatal("Invalid prefix string");
     }
 
     if ($tree !~ /\.git$/ || ! -d $git_path.$tree ||
 	! -d $git_path.$tree.'/objects') {
-	fatal("400 No such git tree");
+	fatal("No such git tree");
     }
 
     my $repo;
     git_cmd_try {
 	$repo = Git->repository(Repository => $git_path.$tree);
-    } "400 Invalid git repository\n";
+    } "Invalid git repository\n";
 
     my ($sha, $type, $len) = check_ref($repo, $ref);
     if ($type !~ /^(tree|commit|tag)$/) {
-	fatal("400 Invalid tree reference");
+	fatal("Invalid tree reference");
     }
 
     syslog(LOG_INFO, "tar ref ${sha}");
@@ -281,7 +281,7 @@ sub get_tar_data(@)
     git_cmd_try {
 	$repo->command_noisy('archive', '--format=tar', '--prefix='.$prefix,
 			     '-o', $tmpdir.'/data', $ref);
-    } "400 Failed to acquire tarball\n";
+    } "Failed to acquire tarball\n";
 		  
     $have_data = 1;
 }
@@ -291,33 +291,33 @@ sub get_diff_data(@)
     my @args = @_;
 
     if (scalar(@args) != 3) {
-	fatal("400 Bad DIFF command");
+	fatal("Bad DIFF command");
     }
 
     my($tree, $ref1, $ref2) = @args;
 
     if (!is_valid_filename($tree)) {
-	fatal("400 Invalid pathname in DIFF command");
+	fatal("Invalid pathname in DIFF command");
     }
 
     if ($tree !~ /\.git$/ || ! -d $git_path.$tree ||
 	! -d $git_path.$tree.'/objects') {
-	fatal("400 No such git tree");
+	fatal("No such git tree");
     }
 
     my $repo;
     git_cmd_try {
 	$repo = Git->repository(Repository => $git_path.$tree);
-    } "400 Invalid git repository\n";
+    } "Invalid git repository\n";
 
     my ($sha1, $type1, $len1) = check_ref($repo, $ref1);
     if ($type1 !~ /^(tree|commit|tag)$/) {
-	fatal("400 Invalid tree reference");
+	fatal("Invalid tree reference");
     }
     
     my ($sha2, $type2, $len2) = check_ref($repo, $ref2);
     if ($type2 !~ /^(tree|commit|tag)$/) {
-	fatal("400 Invalid tree reference");
+	fatal("Invalid tree reference");
     }
 
     syslog(LOG_INFO, "diff refs ${sha1}..${sha2}");
@@ -335,7 +335,7 @@ sub get_diff_data(@)
 
 	open(STDOUT, '>&', $oldstdout);
 	close($oldstdout);
-    } "400 Failed to acquire patch file\n";
+    } "Failed to acquire patch file\n";
 		  
     $have_data = 1;
 }
@@ -345,7 +345,7 @@ sub get_sign_data(@)
     my @args = @_;
 
     if (scalar(@args) != 1 || $args[0] !~ /^[0-9]+$/) {
-	fatal("400 Bad SIGN command");
+	fatal("Bad SIGN command");
     }
 
     my $output = $tmpdir.'/sign';
@@ -356,10 +356,10 @@ sub get_sign_data(@)
 		  AutoClose => 0,
 		  Transparent => 1,
 		  BlockSize => $bufsiz)
-	or fatal("400 SIGN decompression error: $AnyUncompressError");
+	or fatal("SIGN decompression error: $AnyUncompressError");
 		  
     if ((-s $output) >= 65536) {
-	fatal("400 SIGN output impossibly large");
+	fatal("SIGN output impossibly large");
     }
 
     $have_sign = 1;
@@ -489,24 +489,24 @@ sub put_file(@)
     my @args = @_;
 
     if (scalar(@args) != 1) {
-	fatal("400 Bad PUT command");
+	fatal("Bad PUT command");
     }
 
     my($file) = @args;
 
     if (!$have_data) {
-	fatal("400 PUT without DATA");
+	fatal("PUT without DATA");
     }
     if (!$have_sign) {
-	fatal("400 PUT without SIGN");
+	fatal("PUT without SIGN");
     }
 
     if (!signature_valid()) {
-	fatal("400 Signature invalid");
+	fatal("Signature invalid");
     }
 
     if (!is_valid_filename($file)) {
-	fatal("400 Invalid filename in PUT command");
+	fatal("Invalid filename in PUT command");
     }
 
     if ($file =~ /^(.*)\.gz$/) {
@@ -523,11 +523,11 @@ sub put_file(@)
 	    unlink($data_path.$stem.'.bz2');
 	    unlink($data_path.$stem.'.xz');
 	    unlink($data_path.$stem.'.sign');
-	    fatal("400 Failed to install files");
+	    fatal("Failed to install files");
 	}
 	unlock_tree();
     } elsif ($file =~ /\.(sign|bz2|xz)$/) {
-	fatal("400 Cannot install .sign, .bz2 or .xz files directly");
+	fatal("Cannot install .sign, .bz2 or .xz files directly");
     } else {
 	make_timestamps_match();
 
@@ -536,7 +536,7 @@ sub put_file(@)
 	    !rename($tmpdir.'/sign', $data_path.$file.'.sign')) {
 	    unlink($data_path.$file);
 	    unlink($data_path.$file.'.sign');
-	    fatal("400 Failed to install files");
+	    fatal("Failed to install files");
 	}
 	unlock_tree();
     }
@@ -549,22 +549,22 @@ sub do_mkdir(@)
     my @args = @_;
 
     if (scalar(@args) != 1) {
-	fatal("400 Bad MKDIR command");
+	fatal("Bad MKDIR command");
     }
 
     my($file) = @args;
 
     if (!is_valid_filename($file)) {
-	fatal("400 Invalid filename in MKDIR command");
+	fatal("Invalid filename in MKDIR command");
     }
 
     if ($file =~ /\.(gz|bz2|xz|sign)$/) {
-	fatal("400 Protected filename space");
+	fatal("Protected filename space");
     }
 
     # No need to lock/unlock around a single atomic operation
     if (!mkdir($data_path.$file, 0777)) {
-	fatal("400 Failed to MKDIR");
+	fatal("Failed to MKDIR");
     }
 }
 
@@ -573,13 +573,13 @@ sub move_file(@)
     my @args = @_;
 
     if (scalar(@args) != 2) {
-	fatal("400 Bad MOVE command");
+	fatal("Bad MOVE command");
     }
 
     my($from, $to) = @args;
 
     if (!is_valid_filename($from) || !is_valid_filename($to)) {
-	fatal("400 Invalid filename in MOVE command");
+	fatal("Invalid filename in MOVE command");
     }
 
     if ($from =~ /\.(bz2|xz|sign)$/) {
@@ -640,7 +640,7 @@ while (defined($line = <STDIN>)) {
 
     if (!is_clean_string($line) || length($line) > 4096) {
 	syslog(LOG_ERR, "Received garbage input");
-	fatal("400 Invalid command");
+	fatal("Invalid command");
     }
 
     syslog(LOG_NOTICE, "Cmd: $line");
@@ -648,7 +648,7 @@ while (defined($line = <STDIN>)) {
     my($cmd, @args) = parse_line($line);
 
     if (!defined($cmd)) {
-	fatal("400 Syntax error");
+	fatal("Syntax error");
     }
 
     if ($cmd eq 'DATA') {
@@ -668,7 +668,7 @@ while (defined($line = <STDIN>)) {
     } elsif ($cmd eq 'DONE') {
 	last;
     } else {
-	fatal("400 Invalid command");
+	fatal("Invalid command");
     }
 }
 
