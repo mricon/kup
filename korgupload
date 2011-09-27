@@ -10,9 +10,9 @@
 #
 # DATA byte-count
 #	- receives a new data blob (follows immediately)
-# TAR git-tree:tree-ish:prefix
+# TAR git-tree tree-ish prefix
 #	- generate a data blob from a git tree (git archive)
-# DIFF git-tree:tree-ish:tree-ish
+# DIFF git-tree tree-ish tree-ish
 #	- generate a data blob as a git tree diff
 # SIGN byte-count
 #	- updates the current signature blob (follows immediately)
@@ -20,7 +20,7 @@
 #	- installs the current data blob as <pathname>
 # MKDIR pathname
 #	- creates a new directory
-# MOVE old-path:new-path
+# MOVE old-path new-path
 #	- moves <old-path> to <new-path>
 # DONE
 #	- optional command, terminates transaction
@@ -39,6 +39,7 @@ use strict;
 use warnings;
 use bytes;
 use Encode qw(encode decode);
+use IPC::Open2 qw(open2);
 
 use File::Temp qw(tempdir);
 use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError) ;
@@ -53,7 +54,7 @@ my $data_path = '/home/hpa/kernel.org/test/pub';
 my $git_path  = '/home/hpa/kernel.org/test/git';
 my $lock_file = '/home/hpa/kernel.org/test/lock';
 my $tmp_path  = '/home/hpa/kernel.org/test/tmp';
-my $max_data  = 1*1024*1024*1024;
+my $max_data  = 8*1024*1024*1024;
 my $bufsiz    = 1024*1024;
 
 %ENV = ('PATH' => '/bin:/usr/bin',
@@ -220,15 +221,19 @@ sub check_ref($$)
 	return undef;
     }
 
-    my($pid, $pipe_in, $pipe_out, $ctx) =
-	$repo->command_bidi_pipe('cat-file', '--batch-check');
-    print $pipe_in $ref, "\n";
-    flush $pipe_in;
-    $out = <$pipe_out>;
-    chomp $out;
-    $repo->command_close_bidi_pipe($pid, $pipe_in, $pipe_out, $ctx);
+    # It turns out Git::command_bidi_pipe() is broken under -T
+    $ENV{'GIT_DIR'} = $repo->repo_path();
 
-    if ($out =~ /^([0-9a-f]{40}) (\S+) ([0-9]+)$/) {
+    my $pipe_in;
+    my $pipe_out;
+    my $pid = open2($pipe_in, $pipe_out, 'git', 'cat-file', '--batch-check');
+    print $pipe_out $ref, "\n";
+    close($pipe_out);
+    $out = <$pipe_in>;
+    chomp $out;
+    waitpid($pid, 0);
+    
+    if ($? == 0 && $out =~ /^([0-9a-f]{40}) (\S+) ([0-9]+)$/) {
 	return ($1, $2, $3+0);
     } else {
 	return undef;
