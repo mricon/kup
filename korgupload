@@ -164,7 +164,7 @@ sub parse_line($)
 sub is_clean_string($)
 {
     no bytes;
-    use feature 'unicode_strings';
+    eval { use feature 'unicode_strings'; };
 
     my($b) = @_;
     my $f = decode('UTF-8', $b, Encode::FB_DEFAULT);
