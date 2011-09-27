@@ -36,10 +36,10 @@ sub usage($) {
     print STDERR "   -e  --rsh=command Send output to command, override KUP_RSH\n";
     print STDERR "\n";
     print STDERR "Commands:\n";
-    print STDERR "   put local_file remote_file signature\n";
-    print STDERR "   put --tar [--prefix=] remote_tree ref remote_file signature\n";
-    print STDERR "   put --diff remote_tree ref1 ref2 remote_file signature\n";
-    print STDERR "   mkdir remote_name\n";
+    print STDERR "   put local_file signature remote_path\n";
+    print STDERR "   put --tar [--prefix=] remote_tree ref signature remote_path\n";
+    print STDERR "   put --diff remote_tree ref1 ref2 signature remote_path\n";
+    print STDERR "   mkdir remote_path\n";
     print STDERR "   mv|move old_path new_path\n";
 
     exit $err;
