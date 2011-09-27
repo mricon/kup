@@ -142,6 +142,14 @@ sub setup_output()
     binmode(STDOUT);
 }
 
+# Terminate the output process
+sub close_output()
+{
+    $| = 1;			# Flush STDOUT
+    unless ($opt{'batch'}) {
+	close(STDOUT);
+    }
+}
 
 sub cat_file($$) {
     my($cmd, $file) = @_;
@@ -379,5 +387,8 @@ setup_output();
 $real = 1;
 @args = @ARGV;
 process_commands();
+
+# Close the output to allow the child process to complete
+close_output();
 
 exit 0;
