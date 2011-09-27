@@ -157,6 +157,8 @@ sub cat_file($$) {
 	    }
 
 	    print $blk;
+
+	    $size -= $len;
 	}
     }
 
@@ -184,10 +186,14 @@ sub cmd_put()
 
 	my $ref = shift(@args);
 
-	if (!defined($ref) ||
-	    !is_valid_filename($remote_tree) ||
-	    !is_clean_string($ref)) {
+	if (!defined($ref)) {
 	    usage(1);
+	}
+	if (!is_valid_filename($remote_tree) || $remote_tree !~ /\.git$/) {
+	    die "$0: invalid path name for git tree: $remote_tree\n";
+	}
+	if (!is_clean_string($ref)) {
+	    die "$0: invalid ref: $ref\n";
 	}
 
 	if ($real) {
@@ -203,11 +209,17 @@ sub cmd_put()
 	my $ref1 = shift(@args);
 	my $ref2 = shift(@args);
 
-	if (!defined($ref2) ||
-	    !is_valid_filename($remote_tree) ||
-	    !is_clean_string($ref1) ||
-	    !is_clean_string($ref2)) {
+	if (!defined($ref2)) {
 	    usage(1);
+	}
+	if (!is_valid_filename($remote_tree) || $remote_tree !~ /\.git$/) {
+	    die "$0: invalid path name for git tree: $remote_tree\n";
+	}
+	if (!is_clean_string($ref1)) {
+	    die "$0: invalid ref: $ref1\n";
+	}
+	if (!is_clean_string($ref2)) {
+	    die "$0: invalid ref: $ref2\n";
 	}
 
 	if ($real) {
@@ -228,27 +240,84 @@ sub cmd_put()
     my $sign   = shift @args;
     my $remote = shift @args;
 
-    if (!defined($remote) || !is_valid_filename($remote)) {
+    if (!defined($remote)) {
 	usage(1);
     }
+
+    if (!is_valid_filename($remote)) {
+	die "$0: invalid pathname: $remote\n";
+    }
+
+    if ($remote =~ /\.sign$/) {
+	die "$0: target filename cannot end in .sign\n";
+    }
+    
+    # DWIM: .bz2, .xz -> .gz
+    $remote =~ s/\.(bz2|xz)$/\.gz/;
 
     cat_file('SIGN', $sign);
 
     if ($real) {
-	print "PUT ${remote}\n";
+	print 'PUT ', url_encode($remote), "\n";
     }
 }
 
 # MKDIR command
 sub cmd_mkdir()
 {
-    ...;
+    my $remote = shift @args;
+
+    if (!defined($remote)) {
+	usage(1);
+    }
+
+    if (!is_valid_filename($remote)) {
+	die "$0: invalid pathname: $remote\n";
+    }
+
+    if ($remote =~ /\.(sign|gz|bz2|xz)$/) {
+	die "$0: a directory name cannot end in .sign, .gz, .bz2, .xz\n";
+    }
+
+    if ($real) {
+	print 'MKDIR ', url_encode($remote), "\n";
+    }
 }
 
 # MOVE command
 sub cmd_move()
 {
-    ...;
+    my $from = shift @args;
+    my $to   = shift @args;
+
+    if (!defined($to)) {
+	usage(1);
+    }
+
+    if (!is_valid_filename($from)) {
+	die "$0: invalid pathname: $from\n";
+    }
+    if (!is_valid_filename($to)) {
+	die "$0: invalid pathname: $to\n";
+    }
+
+    if ($from =~ /\.sign$/ || $to =~ /\.sign$/) {
+	die "$0: cannot explicitly move .sign files\n";
+    }
+    if ($from =~ /\.(gz|bz2|xz)$/ && $to =~ /\.(gz|bz2|xz)$/) {
+	$from =~ s/\.(bz|bz2|xz)$/\.gz/;
+	$to   =~ s/\.(bz|bz2|xz)$/\.gz/;
+    } elsif ($from =~ /\.(gz|bz2|xz)$/ || $to =~ /\.(gz|bz2|xz)$/) {
+	die "$0: cannot move to or from compressed filenames\n";
+    }
+
+    if ($from eq $to) {
+	die "$0: moving filename to self: $from\n";
+    }
+
+    if ($real) {
+	print 'MOVE ', url_encode($from), ' ', url_encode($to), "\n";
+    }
 }
 
 # Process commands
