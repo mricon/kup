@@ -515,6 +515,17 @@ sub put_file(@)
 	make_timestamps_match();
 
 	lock_tree();
+
+	if (-e $data_path.$stem) {
+	    fatal("Filename conflict (compressed and uncompressed)");
+	}
+	if ((-e $data_path.$stem.'.gz' && ! -f _)
+	    (-e $data_path.$stem.'.bz2' && ! -f _)
+	    (-e $data_path.$stem.'.xz' && ! -f _)
+	    (-e $data_path.$stem.'.sign' && ! -f _)) {
+	    fatal("Trying to overwrite a non-file");
+	}
+
 	if (!rename($tmpdir.'/data.gz',  $data_path.$stem.'.gz') ||
 	    !rename($tmpdir.'/data.bz2', $data_path.$stem.'.bz2') ||
 	    !rename($tmpdir.'/data.xz',  $data_path.$stem.'.xz') ||
@@ -532,6 +543,17 @@ sub put_file(@)
 	make_timestamps_match();
 
 	lock_tree();
+
+	if (-e $data_path.$file.'.gz' ||
+	    -e $data_path.$file.'.bz2' ||
+	    -e $data_path.$file.'.xz') {
+	    fatal("Filename conflict (compressed and uncompressed)");
+	}
+	if ((-e $data_path.$file && ! -f _) ||
+	    (-e $data_path.$file.'.sign' && ! -f _)){
+	    fatal("Attempting to overwrite a non-file");
+	}
+
 	if (!rename($tmpdir.'/data', $data_path.$file) ||
 	    !rename($tmpdir.'/sign', $data_path.$file.'.sign')) {
 	    unlink($data_path.$file);
@@ -562,10 +584,20 @@ sub do_mkdir(@)
 	fatal("Protected filename space");
     }
 
-    # No need to lock/unlock around a single atomic operation
+    lock_tree();
+
+    if (-e $data_path.$file.'.gz' ||
+	-e $data_path.$file.'.bz2' ||
+	-e $data_path.$file.'.xz' ||
+	-e $data_path.$file.'.sign') {
+	fatal("Filename conflict (file and directory)");
+    }
+
     if (!mkdir($data_path.$file, 0777)) {
 	fatal("Failed to MKDIR");
     }
+
+    unlock_tree();
 }
 
 sub move_file(@)
@@ -603,25 +635,44 @@ sub move_file(@)
 	    fatal("MOVE of directory failed");
 	}
     } elsif (-f $data_path.$from) {
-	if (-d $data_path.$to) {
-	    $from =~ m:^(|.*/)([^/]+)$:;
-	    my $fname = $2;
-	    $to .= '/'.$fname;
-	}
-
-	if (!rename($data_path.$from, $data_path.$to)) {
-	    fatal("MOVE of plain file failed");
-	}
 	if ($from =~ /^(.*)\.gz$/) {
 	    my $from_stem = $1;
 
 	    die if ($to !~ /^(.*)\.gz$/); # Should already be checked
 	    my $to_stem = $1;
 
-	    if (!rename($data_path.$from_stem.'.bz2',  $data_path.$to_stem.'.bz2') ||
+	    if (-e $data_path.$to_stem) {
+		fatal("Filename conflict (compressed and uncompressed)");
+	    }
+
+	    if ((-e $data_path.$to_stem.'.gz' && ! -f _)
+		(-e $data_path.$to_stem.'.bz2' && ! -f _)
+		(-e $data_path.$to_stem.'.xz' && ! -f _)
+		(-e $data_path.$to_stem.'.sign' && ! -f _)) {
+		fatal("Trying to overwrite a non-file");
+	    }
+
+	    if (!rename($data_path.$from_stem.'.gz',   $data_path.$to_stem.'.gz') ||
+		!rename($data_path.$from_stem.'.bz2',  $data_path.$to_stem.'.bz2') ||
 		!rename($data_path.$from_stem.'.xz',   $data_path.$to_stem.'.xz') ||
 		!rename($data_path.$from_stem.'.sign', $data_path.$to_stem.'.sign')) {
-		fatal("MOVE of auxilliary file failed");
+		fatal("MOVE of compressed file failed");
+	    }
+	} else {
+	    if (-e $data_path.$to.'.gz' ||
+		-e $data_path.$to.'.bz2' ||
+		-e $data_path.$to.'.xz') {
+		fatal("Filename conflict (compressed and uncompressed)");
+	    }
+
+	    if ((-e $data_path.$to && ! -f _) ||
+		(-e $data_path.$to.'.sign' && ! -f _)) {
+		fatal("Trying to overwrite non-directory");
+	    }
+
+	    if (!rename($data_path.$from, $data_path.$to) ||
+		!rename($data_path.$from.'.sign', $data_path.$to.'.sign') {
+		fatal("MOVE of plain file failed");
 	    }
 	}
     } else {
