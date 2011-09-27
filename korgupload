@@ -147,13 +147,16 @@ sub parse_line($)
     }
 
     my $cmd = $1;
-    my @rawargs = split(/\s+/, $3);
-
     my @args = ();
-    foreach my $ra (@rawargs) {
-	my $a = url_unescape($ra);
-	return undef if (!defined($a));
-	push(@args, $a);
+
+    if ($2 ne '') {
+	my @rawargs = split(/\s+/, $3);
+
+	foreach my $ra (@rawargs) {
+	    my $a = url_unescape($ra);
+	    return undef if (!defined($a));
+	    push(@args, $a);
+	}
     }
 
     return ($cmd, @args);
