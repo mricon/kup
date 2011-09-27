@@ -600,41 +600,43 @@ sub do_mkdir(@)
     unlock_tree();
 }
 
-sub move_file(@)
+sub move_or_link_file($@)
 {
-    my @args = @_;
+    my($cmd, @args) = @_;
 
     if (scalar(@args) != 2) {
-	fatal("Bad MOVE command");
+	fatal("Bad $cmd command");
     }
+
+    my $op = ($cmd eq 'MOVE') ? \&rename : \&link;
 
     my($from, $to) = @args;
 
     if (!is_valid_filename($from) || !is_valid_filename($to)) {
-	fatal("Invalid filename in MOVE command");
+	fatal("Invalid filename in $cmd command");
     }
 
     if ($from =~ /\.(bz2|xz|sign)$/) {
-	fatal("MOVE of individual .bz2, .xz, or .sign files not supported");
+	fatal("$cmd of individual .bz2, .xz, or .sign files not supported");
     }
     if ($to =~ /\.(bz2|xz|sign)$/) {
-	fatal("MOVE to filename ending in .bz2, .xz or .sign");
+	fatal("$cmd to filename ending in .bz2, .xz or .sign");
     }
     
     if ($from =~ /\.gz$/ && $to !~ /\.gz$/) {
-	fatal("MOVE of .gz file must itself end in .gz");
+	fatal("$cmd of .gz file must itself end in .gz");
     }
     if ($from !~ /\.gz$/ && $to =~ /\.gz$/) {
-	fatal("MOVE of non-.gz file must not end in .gz");
+	fatal("$cmd of non-.gz file must not end in .gz");
     }
 
     lock_tree();
 
     if (!-e $data_path.$from) {
-	fatal("MOVE of nonexistent object");
+	fatal("$cmd of nonexistent object");
     } elsif (-d $data_path.$from) {
-	if (!rename($data_path.$from, $data_path.$to)) {
-	    fatal("MOVE of directory failed");
+	if (!$op->($data_path.$from, $data_path.$to)) {
+	    fatal("$cmd of directory failed");
 	}
     } elsif (-f $data_path.$from) {
 	if ($from =~ /^(.*)\.gz$/) {
@@ -654,11 +656,11 @@ sub move_file(@)
 		fatal("Trying to overwrite a non-file");
 	    }
 
-	    if (!rename($data_path.$from_stem.'.gz',   $data_path.$to_stem.'.gz') ||
-		!rename($data_path.$from_stem.'.bz2',  $data_path.$to_stem.'.bz2') ||
-		!rename($data_path.$from_stem.'.xz',   $data_path.$to_stem.'.xz') ||
-		!rename($data_path.$from_stem.'.sign', $data_path.$to_stem.'.sign')) {
-		fatal("MOVE of compressed file failed");
+	    if (!$op->($data_path.$from_stem.'.gz',   $data_path.$to_stem.'.gz') ||
+		!$op->($data_path.$from_stem.'.bz2',  $data_path.$to_stem.'.bz2') ||
+		!$op->($data_path.$from_stem.'.xz',   $data_path.$to_stem.'.xz') ||
+		!$op->($data_path.$from_stem.'.sign', $data_path.$to_stem.'.sign')) {
+		fatal("$cmd of compressed file failed");
 	    }
 	} else {
 	    if (-e $data_path.$to.'.gz' ||
@@ -672,13 +674,13 @@ sub move_file(@)
 		fatal("Trying to overwrite non-file");
 	    }
 
-	    if (!rename($data_path.$from, $data_path.$to) ||
-		!rename($data_path.$from.'.sign', $data_path.$to.'.sign')) {
-		fatal("MOVE of plain file failed");
+	    if (!$op->($data_path.$from, $data_path.$to) ||
+		!$op->($data_path.$from.'.sign', $data_path.$to.'.sign')) {
+		fatal("$cmd of plain file failed");
 	    }
 	}
     } else {
-	fatal("MOVE of non-directory/non-file not currently supported");
+	fatal("$cmd of non-directory/non-file not currently supported");
     }
 
     unlock_tree();
@@ -716,8 +718,8 @@ while (defined($line = <STDIN>)) {
 	put_file(@args);
     } elsif ($cmd eq 'MKDIR') {
 	do_mkdir(@args);
-    } elsif ($cmd eq 'MOVE') {
-	move_file(@args);
+    } elsif ($cmd eq 'MOVE' || $cmd eq 'LINK') {
+	move_or_link_file($cmd, @args);
     } elsif ($cmd eq 'DONE') {
 	last;
     } else {

@@ -53,6 +53,7 @@ sub usage($) {
     print STDERR "   put --diff remote_tree ref1 ref2 signature remote_path\n";
     print STDERR "   mkdir remote_path\n";
     print STDERR "   mv|move old_path new_path\n";
+    print STDERR "   ln|link old_path new_path\n";
 
     exit $err;
 }
@@ -304,9 +305,11 @@ sub cmd_mkdir()
     }
 }
 
-# MOVE command
-sub cmd_move()
+# MOVE or LINK command
+sub cmd_move_link($)
 {
+    my($cmd) = @_;
+
     my $from = shift @args;
     my $to   = shift @args;
 
@@ -344,7 +347,7 @@ sub cmd_move()
     }
 
     if ($real) {
-	print 'MOVE ', url_encode($from), ' ', url_encode($to), "\n";
+	print $cmd, ' ', url_encode($from), ' ', url_encode($to), "\n";
     }
 }
 
@@ -365,7 +368,9 @@ sub process_commands()
 	} elsif ($cmd eq 'mkdir') {
 	    cmd_mkdir();
 	} elsif ($cmd eq 'move' || $cmd eq 'mv') {
-	    cmd_move();
+	    cmd_move_link('MOVE');
+	} elsif ($cmd eq 'link' || $cmd eq 'ln') {
+	    cmd_move_link('LINK');
 	} else {
 	    die "$0: unknown command: $cmd\n";
 	}
