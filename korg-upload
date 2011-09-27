@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -T
 #
 # This script should be run with the permissions of the user that
 # is uploading files.
@@ -44,6 +44,7 @@ use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError) ;
 use BSD::Resource;
 use Fcntl qw(:DEFAULT :flock);
 
+use Sys::Syslog qw(:standard :macros);
 use Git;
 
 my $data_path = '/home/hpa/kernel.org/test/pub';
@@ -66,17 +67,35 @@ umask(002);
 my $have_data = 0;
 my $have_sign = 0;
 
+sub my_username() {
+    my $whoami = getpid();
+    my ($name,$passwd,$uid,$gid,$quota,$comment,$gcos,$dir,$shell,$expire) = getpwuid($whoami);
+
+    return (defined($name) && $whoami == $uid) ? $name : $whoami;
+}
+
+my $user_name = my_username();
+
+openlog("korgupload($user_name)", 'ndelay,pid', LOG_LOCAL5);
+
 my $lock_fd   = undef;
+
+sub fatal($) {
+    my($msg) = @_;
+
+    syslog(LOG_FATAL, "%s", $msg);
+    die $msg."\n";
+}
 
 sub lock_tree()
 {
     if (!defined($lock_fd)) {
 	open($lock_fd, '<', $lock_file)
-	    or die "Cannot open lock file\n";
+	    or fatal("Cannot open lock file");
 	flock($lock_fd, LOCK_EX)
-	    or die "Cannot get file tree lock\n";
+	    or fatal("Cannot get file tree lock");
     } else {
-	die "File tree is already locked\n";
+	fatal("File tree is already locked");
     }
 }
 
@@ -169,8 +188,7 @@ sub get_raw_data(@)
     my @args = @_;
 
     if (scalar(@args) != 1 || $args[0] !~ /^[0-9]+$/) {
-	die "400 Bad DATA command\n";
-	exit 1;
+	fatal("400 Bad DATA command");
     }
 
     my $output = $tmpdir.'/data';
@@ -181,7 +199,7 @@ sub get_raw_data(@)
 		  AutoClose => 0,
 		  Transparent => 1,
 		  BlockSize => $bufsiz)
-	or die "400 DATA decompression error: $AnyUncompressError\n";
+	or fatal("400 DATA decompression error: $AnyUncompressError");
 		  
     $have_data = 1;
 }
@@ -217,23 +235,22 @@ sub get_tar_data(@)
     my @args = @_;
 
     if (scalar(@args) != 3) {
-	die "400 Bad TAR command\n";
-	exit 1;
+	fatal("400 Bad TAR command");
     }
 
     my($tree, $ref, $prefix) = @args;
 
     if (!is_valid_filename($tree)) {
-	die "400 Invalid pathname in TAR command\n";
+	fatal("400 Invalid pathname in TAR command");
     }
 
     if (!is_clean_string($prefix)) {
-	die "400 Invalid prefix string\n";
+	fatal("400 Invalid prefix string");
     }
 
     if ($tree !~ /\.git$/ || ! -d $git_path.$tree ||
 	! -d $git_path.$tree.'/objects') {
-	die "400 No such git tree\n";
+	fatal("400 No such git tree");
     }
 
     my $repo;
@@ -243,7 +260,7 @@ sub get_tar_data(@)
 
     my ($sha, $type, $len) = check_ref($repo, $ref);
     if ($type !~ /^(tree|commit|tag)$/) {
-	die "400 Invalid tree reference\n";
+	fatal("400 Invalid tree reference");
     }
 
     git_cmd_try {
@@ -259,19 +276,18 @@ sub get_diff_data(@)
     my @args = @_;
 
     if (scalar(@args) != 3) {
-	die "400 Bad DIFF command\n";
-	exit 1;
+	fatal("400 Bad DIFF command");
     }
 
     my($tree, $ref1, $ref2) = @args;
 
     if (!is_valid_filename($tree)) {
-	die "400 Invalid pathname in DIFF command\n";
+	fatal("400 Invalid pathname in DIFF command");
     }
 
     if ($tree !~ /\.git$/ || ! -d $git_path.$tree ||
 	! -d $git_path.$tree.'/objects') {
-	die "400 No such git tree\n";
+	fatal("400 No such git tree");
     }
 
     my $repo;
@@ -281,12 +297,12 @@ sub get_diff_data(@)
 
     my ($sha1, $type1, $len1) = check_ref($repo, $ref1);
     if ($type1 !~ /^(commit|tag)$/) {
-	die "400 Invalid commit reference\n";
+	fatal("400 Invalid commit reference");
     }
     
     my ($sha2, $type2, $len2) = check_ref($repo, $ref2);
     if ($type2 !~ /^(commit|tag)$/) {
-	die "400 Invalid commit reference\n";
+	fatal("400 Invalid commit reference");
     }
 
     git_cmd_try {
@@ -309,8 +325,7 @@ sub get_sign_data(@)
     my @args = @_;
 
     if (scalar(@args) != 1 || $args[0] !~ /^[0-9]+$/) {
-	die "400 Bad SIGN command\n";
-	exit 1;
+	fatal("400 Bad SIGN command");
     }
 
     my $output = $tmpdir.'/sign';
@@ -321,10 +336,10 @@ sub get_sign_data(@)
 		  AutoClose => 0,
 		  Transparent => 1,
 		  BlockSize => $bufsiz)
-	or die "400 SIGN decompression error: $AnyUncompressError\n";
+	or fatal("400 SIGN decompression error: $AnyUncompressError");
 		  
     if ((-s $output) >= 65536) {
-	die "400 SIGN output impossibly large\n";
+	fatal("400 SIGN output impossibly large");
     }
 
     $have_sign = 1;
@@ -348,7 +363,7 @@ sub make_compressed_data()
 	my $w = fork();
 
 	if (!defined($w)) {
-	    die "Fork failed\n";
+	    fatal("Fork failed");
 	}
 
 	if ($w == 0) {
@@ -380,7 +395,7 @@ sub make_compressed_data()
 		foreach my $c (keys %workers) {
 		    kill('TERM', $c);
 		}
-		die "Failed to compress output data\n";
+		fatal("Failed to compress output data");
 	    }
 	}
 
@@ -410,24 +425,24 @@ sub put_file(@)
     my @args = @_;
 
     if (scalar(@args) != 1) {
-	die "400 Bad PUT command\n";
+	fatal("400 Bad PUT command");
     }
 
     my($file) = @args;
 
     if (!$have_data) {
-	die "400 PUT without DATA\n";
+	fatal("400 PUT without DATA");
     }
     if (!$have_sign) {
-	die "400 PUT without SIGN\n";
+	fatal("400 PUT without SIGN");
     }
 
     if (!signature_valid()) {
-	die "400 Signature invalid\n";
+	fatal("400 Signature invalid");
     }
 
     if (!is_valid_filename($file)) {
-	die "400 Invalid filename in PUT command\n";
+	fatal("400 Invalid filename in PUT command");
     }
 
     if ($file =~ /^(.*)\.gz$/) {
@@ -443,18 +458,18 @@ sub put_file(@)
 	    unlink($data_path.$stem.'.bz2');
 	    unlink($data_path.$stem.'.xz');
 	    unlink($data_path.$stem.'.sign');
-	    die "400 Failed to install files\n";
+	    fatal("400 Failed to install files");
 	}
 	unlock_tree();
     } elsif ($file =~ /\.(sign|bz2|xz)$/) {
-	die "400 Cannot install .sign, .bz2 or .xz files directly\n";
+	fatal("400 Cannot install .sign, .bz2 or .xz files directly");
     } else {
 	lock_tree();
 	if (!rename($tmpdir.'/data', $data_path.$file) ||
 	    !rename($tmpdir.'/sign', $data_path.$file.'.sign')) {
 	    unlink($data_path.$file);
 	    unlink($data_path.$file.'.sign');
-	    die "400 Failed to install files\n";
+	    fatal("400 Failed to install files");
 	}
 	unlock_tree();
     }
@@ -467,22 +482,22 @@ sub do_mkdir(@)
     my @args = @_;
 
     if (scalar(@args) != 1) {
-	die "400 Bad MKDIR command\n";
+	fatal("400 Bad MKDIR command");
     }
 
     my($file) = @args;
 
     if (!is_valid_filename($file)) {
-	die "400 Invalid filename in MKDIR command\n";
+	fatal("400 Invalid filename in MKDIR command");
     }
 
     if ($file =~ /\.(gz|bz2|xz|sign)$/) {
-	die "400 Protected filename space\n";
+	fatal("400 Protected filename space");
     }
 
     # No need to lock/unlock around a single atomic operation
     if (!mkdir($file, 002)) {
-	die "400 Failed to MKDIR\n";
+	fatal("400 Failed to MKDIR");
     }
 }
 
@@ -491,34 +506,34 @@ sub move_file(@)
     my @args = @_;
 
     if (scalar(@args) != 2) {
-	die "400 Bad MOVE command\n";
+	fatal("400 Bad MOVE command");
     }
 
     my($from, $to) = @args;
 
     if (!is_valid_filename($from) || !is_valid_filename($to)) {
-	die "400 Invalid filename in MOVE command\n";
+	fatal("400 Invalid filename in MOVE command");
     }
 
     if ($from =~ /\.(bz2|xz|sign)$/) {
-	die "MOVE of individual .bz2, .xz, or .sign files not supported\n";
+	fatal("MOVE of individual .bz2, .xz, or .sign files not supported");
     }
     if ($to =~ /\.(bz2|xz|sign)$/) {
-	die "MOVE to filename ending in .bz2, .xz or .sign\n";
+	fatal("MOVE to filename ending in .bz2, .xz or .sign");
     }
     
     if ($from =~ /\.gz$/ && $to !~ /\.gz$/) {
-	die "MOVE of .gz file must itself end in .gz\n";
+	fatal("MOVE of .gz file must itself end in .gz");
     }
     if ($from !~ /\.gz$/ && $to =~ /\.gz$/) {
-	die "MOVE of non-.gz file must not end in .gz\n";
+	fatal("MOVE of non-.gz file must not end in .gz");
     }
 
     lock_tree();
 
     if (-d $data_path.$from) {
 	if (!rename($data_path.$from, $data_path.$to)) {
-	    die "MOVE of directory failed\n";
+	    fatal("MOVE of directory failed");
 	}
     } elsif (-f $data_path.$from) {
 	if (-d $data_path.$to) {
@@ -528,7 +543,7 @@ sub move_file(@)
 	}
 
 	if (!rename($data_path.$from, $data_path.$to)) {
-	    die "MOVE of plain file failed\n";
+	    fatal("MOVE of plain file failed");
 	}
 	if ($from =~ /^(.*)\.gz$/) {
 	    my $from_stem = $1;
@@ -539,11 +554,11 @@ sub move_file(@)
 	    if (!rename($data_path.$from_stem.'.bz2',  $data_path.$to_stem.'.bz2') ||
 		!rename($data_path.$from_stem.'.xz',   $data_path.$to_stem.'.xz') ||
 		!rename($data_path.$from_stem.'.sign', $data_path.$to_stem.'.sign')) {
-		die "MOVE of auxilliary file failed\n";
+		fatal("MOVE of auxilliary file failed");
 	    }
 	}
     } else {
-	die "MOVE of non-directory/non-file not currently supported\n";
+	fatal("MOVE of non-directory/non-file not currently supported");
     }
 
     unlock_tree();
@@ -554,11 +569,17 @@ while (defined($line = <STDIN>)) {
     # Ignore lines with only whitespace or starting with #
     next if ($line =~ /^\s*(|\#.*)$/);
 
+    if (!is_clean_string($line) || length($line) > 4096) {
+	syslog(LOG_ERR, "Received garbage input");
+	fatal("400 Invalid command");
+    }
+
+    syslog(LOG_INFO, "Cmd: $line");
+
     my($cmd, @args) = parse_line($line);
 
     if (!defined($cmd)) {
-	die "400 Syntax error\n";
-	exit 1;
+	fatal("400 Syntax error");
     }
 
     if ($cmd eq 'DATA') {
@@ -578,7 +599,6 @@ while (defined($line = <STDIN>)) {
     } elsif ($cmd eq 'DONE') {
 	last;
     } else {
-	die "400 Invalid command\n";
-	exit 1;
+	fatal("400 Invalid command");
     }
 }
