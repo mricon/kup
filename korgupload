@@ -54,6 +54,7 @@ my $data_path = '/home/hpa/kernel.org/test/pub';
 my $git_path  = '/home/hpa/kernel.org/test/git';
 my $lock_file = '/home/hpa/kernel.org/test/lock';
 my $tmp_path  = '/home/hpa/kernel.org/test/tmp';
+my $pgp_path  = '/home/hpa/kernel.org/test/pgp';
 my $max_data  = 8*1024*1024*1024;
 my $bufsiz    = 1024*1024;
 
@@ -426,8 +427,39 @@ sub cleanup()
 
 sub signature_valid()
 {
-    # GPG verify an authorized signature here
-    return 1;
+    my $oldstdout;
+    my $oldstderr;
+    my $devnull;
+
+    # gpg likes to chat on the console no matter what...
+    open($devnull, '>', '/dev/null')
+	or fatal("Cannot open /dev/null");
+    open($oldstdout, '>&', \*STDOUT)
+	or fatal("dup error");
+    open($oldstderr, '>&', \*STDERR)
+	or fatal("dup error");
+    open(STDOUT, '>&', $devnull)
+	or fatal("dup error");
+    open(STDERR, '>&', $devnull)
+	or fatal("dup error");
+    close($devnull);
+
+    my $status =
+	system('/usr/bin/gpg', '--batch', '--no-tty',
+	       '--homedir', $tmpdir,
+	       '--no-options',
+	       '--no-auto-key-locate',
+	       '--no-default-keyring',
+	       '--keyring', $pgp_path."/${user_name}.gpg",
+	       '--display-charset', 'utf-8',
+	       '--verify', $tmpdir.'/sign', $tmpdir.'/data');
+
+    open(STDOUT, '>&', $oldstdout);
+    close($oldstdout);
+    open(STDERR, '>&', $oldstderr);
+    close($oldstderr);
+
+    return $status == 0;
 }
 
 sub put_file(@)
