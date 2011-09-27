@@ -84,7 +84,7 @@ my $lock_fd   = undef;
 sub fatal($) {
     my($msg) = @_;
 
-    syslog(LOG_FATAL, "%s", $msg);
+    syslog(LOG_CRIT, "%s", $msg);
     die $msg."\n";
 }
 
@@ -578,7 +578,7 @@ while (defined($line = <STDIN>)) {
 	fatal("400 Invalid command");
     }
 
-    syslog(LOG_INFO, "Cmd: $line");
+    syslog(LOG_NOTICE, "Cmd: $line");
 
     my($cmd, @args) = parse_line($line);
 
