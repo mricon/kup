@@ -44,6 +44,7 @@ use File::Temp qw(tempdir);
 use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError) ;
 use BSD::Resource;
 use Fcntl qw(:DEFAULT :flock);
+use POSIX;
 
 use Sys::Syslog qw(:standard :macros);
 use Git;
