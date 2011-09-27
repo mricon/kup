@@ -307,25 +307,28 @@ sub get_diff_data(@)
     } "400 Invalid git repository\n";
 
     my ($sha1, $type1, $len1) = check_ref($repo, $ref1);
-    if ($type1 !~ /^(commit|tag)$/) {
-	fatal("400 Invalid commit reference");
+    if ($type1 !~ /^(tree|commit|tag)$/) {
+	fatal("400 Invalid tree reference");
     }
     
     my ($sha2, $type2, $len2) = check_ref($repo, $ref2);
-    if ($type2 !~ /^(commit|tag)$/) {
-	fatal("400 Invalid commit reference");
+    if ($type2 !~ /^(tree|commit|tag)$/) {
+	fatal("400 Invalid tree reference");
     }
 
     git_cmd_try {
-	open(OLDSTDOUT, '>&', \*STDOUT) or die;
-	sysopen(OUT, $tmpdir.'/data', O_WRONLY) or die;
-	open(STDOUT, '>&', \*OUT) or die;
-	close(OUT);
-	
-	$repo->command_noisy('diff', $sha1.'..'.$sha2);
+	my $oldstdout;
+	my $out;
 
-	open(STDOUT, '>&', \*OLDSTDOUT);
-	close(OLDSTDOUT);
+	open($oldstdout, '>&', \*STDOUT) or die;
+	sysopen($out, $tmpdir.'/data', O_WRONLY|O_CREAT|O_TRUNC) or die;
+	open(STDOUT, '>&', $out) or die;
+	close($out);
+	
+	$repo->command_noisy('diff-tree', '-p', $sha1, $sha2);
+
+	open(STDOUT, '>&', $oldstdout);
+	close($oldstdout);
     } "400 Failed to acquire patch file\n";
 		  
     $have_data = 1;
