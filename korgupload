@@ -274,6 +274,8 @@ sub get_tar_data(@)
 	fatal("400 Invalid tree reference");
     }
 
+    syslog(LOG_INFO, "tar ref ${sha}");
+
     git_cmd_try {
 	$repo->command_noisy('archive', '--prefix='.$prefix,
 			     '-o', $tmpdir.'/data', $ref);
@@ -315,6 +317,8 @@ sub get_diff_data(@)
     if ($type2 !~ /^(tree|commit|tag)$/) {
 	fatal("400 Invalid tree reference");
     }
+
+    syslog(LOG_INFO, "diff refs ${sha1}..${sha2}");
 
     git_cmd_try {
 	my $oldstdout;
