@@ -519,9 +519,9 @@ sub put_file(@)
 	if (-e $data_path.$stem) {
 	    fatal("Filename conflict (compressed and uncompressed)");
 	}
-	if ((-e $data_path.$stem.'.gz' && ! -f _)
-	    (-e $data_path.$stem.'.bz2' && ! -f _)
-	    (-e $data_path.$stem.'.xz' && ! -f _)
+	if ((-e $data_path.$stem.'.gz' && ! -f _) ||
+	    (-e $data_path.$stem.'.bz2' && ! -f _) ||
+	    (-e $data_path.$stem.'.xz' && ! -f _) ||
 	    (-e $data_path.$stem.'.sign' && ! -f _)) {
 	    fatal("Trying to overwrite a non-file");
 	}
@@ -645,9 +645,9 @@ sub move_file(@)
 		fatal("Filename conflict (compressed and uncompressed)");
 	    }
 
-	    if ((-e $data_path.$to_stem.'.gz' && ! -f _)
-		(-e $data_path.$to_stem.'.bz2' && ! -f _)
-		(-e $data_path.$to_stem.'.xz' && ! -f _)
+	    if ((-e $data_path.$to_stem.'.gz' && ! -f _) ||
+		(-e $data_path.$to_stem.'.bz2' && ! -f _) ||
+		(-e $data_path.$to_stem.'.xz' && ! -f _) ||
 		(-e $data_path.$to_stem.'.sign' && ! -f _)) {
 		fatal("Trying to overwrite a non-file");
 	    }
@@ -671,7 +671,7 @@ sub move_file(@)
 	    }
 
 	    if (!rename($data_path.$from, $data_path.$to) ||
-		!rename($data_path.$from.'.sign', $data_path.$to.'.sign') {
+		!rename($data_path.$from.'.sign', $data_path.$to.'.sign')) {
 		fatal("MOVE of plain file failed");
 	    }
 	}
