@@ -42,12 +42,16 @@ use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError) ;
 use BSD::Resource;
 use Fcntl qw(:DEFAULT :flock);
 
+use Git;
+
 my $data_path = '/home/hpa/kernel.org/test/pub';
-my $sign_path = '/home/hpa/kernel.org/test/sign';
+my $git_path  = '/home/hpa/kernel.org/test/git';
 my $lock_file = '/home/hpa/kernel.org/test/lock';
 my $tmp_path  = '/var/tmp/upload';
 my $max_data  = 1*1024*1024*1024;
 my $bufsiz    = 1024*1024;
+
+%ENV = ('PATH=/bin:/usr/bin', 'LANG=C', 'SHELL=/bin/sh');
 
 umask(077);
 setrlimit(RLIMIT_FSIZE, $max_data, RLIM_INFINITY);
@@ -123,10 +127,9 @@ sub parse_line($)
     return @args;
 }
 
-# This returns true if the given argument is a valid filename in its
-# canonical form.  Double slashes, relative paths, control characters,
-# and malformed UTF-8 is not permitted.
-sub is_valid_file_name($)
+# Return true if the supplied string is valid UTF-8 without special
+# characters
+sub is_clean_string($)
 {
     no bytes;
     use feature 'unicode_strings';
@@ -134,8 +137,19 @@ sub is_valid_file_name($)
     my($b) = @_;
     my $f = decode('UTF-8', $b, Encode::FB_DEFAULT);
 
-    return 0 if ($f !~ m:^/:);
     return 0 if ($f =~ m:[\x{0000}-\x{001f}\x{007f}-\x{00a0}\x{fffd}-\x{ffff}]:);
+    return 1;
+}    
+
+# This returns true if the given argument is a valid filename in its
+# canonical form.  Double slashes, relative paths, control characters,
+# and malformed UTF-8 is not permitted.
+sub is_valid_file_name($)
+{
+    my($f) = @_;
+
+    return 0 if (!is_clean_string($f));
+    return 0 if ($f !~ m:^/:);
     return 0 if ($f =~ m:/$:);
     return 0 if ($f =~ m://:);
     return 0 if ($f =~ m:/(\.|\.\.)(/|$):);
@@ -165,14 +179,119 @@ sub get_raw_data(@)
     $have_data = 1;
 }
 
+# Get the canonical name for a git ref and its type
+sub check_ref($$)
+{
+    my($repo, $ref) = @_;
+
+    my $out = undef;
+
+    if (!is_clean_string($ref) || $ref =~ /^-/) {
+	return undef;
+    }
+
+    my($pid, $pipe_in, $pipe_out, $ctx) =
+	$repo->command_bidi_pipe('cat-file', '--batch-check');
+    print $pipe_in $ref, "\n";
+    flush $pipe_in;
+    $out = <$pipe_out>;
+    chomp $out;
+    $repo->command_close_bidi_pipe($pid, $pipe_in, $pipe_out, $ctx);
+
+    if ($out =~ /^([0-9a-f]{40}) (\S+) ([0-9]+)$/) {
+	return ($1, $2, $3+0);
+    } else {
+	return undef;
+    }
+}
+
 sub get_tar_data(@)
 {
-    die "TAR not yet implemented\n";
+    my @args = @_;
+
+    if (scalar(@args) != 3) {
+	die "400 Bad TAR command\n";
+	exit 1;
+    }
+
+    my($tree, $ref, $prefix) = @args;
+
+    if (!is_valid_filename($tree)) {
+	die "400 Invalid pathname in TAR command\n";
+    }
+
+    if (!is_clean_string($prefix)) {
+	die "400 Invalid prefix string\n";
+    }
+
+    if ($tree !~ /\.git$/ || ! -d $git_path.$tree ||
+	! -d $git_path.$tree.'/objects') {
+	die "400 No such git tree\n";
+    }
+
+    git_cmd_try {
+	my $repo = Git->repository(Repository => $git_path.$tree);
+    } "400 Invalid git repository\n";
+
+    if (!is_clean_string($ref) || $ref =~ /^\-/) {
+	die "400 Invalid tree-ish reference\n";
+    }
+
+    git_cmd_try {
+	$repo->command_noisy('archive', '--prefix='.$prefix,
+			     '-o', $tmpdir.'/data', $ref);
+    } "400 Failed to acquire tarball\n";
+		  
+    $have_data = 1;
 }
 
 sub get_diff_data(@)
 {
-    die "DIFF not yet implemented\n";
+    my @args = @_;
+
+    if (scalar(@args) != 3) {
+	die "400 Bad DIFF command\n";
+	exit 1;
+    }
+
+    my($tree, $ref1, $ref2) = @args;
+
+    if (!is_valid_filename($tree)) {
+	die "400 Invalid pathname in DIFF command\n";
+    }
+
+    if ($tree !~ /\.git$/ || ! -d $git_path.$tree ||
+	! -d $git_path.$tree.'/objects') {
+	die "400 No such git tree\n";
+    }
+
+    git_cmd_try {
+	my $repo = Git->repository(Repository => $git_path.$tree);
+    } "400 Invalid git repository\n";
+
+    my ($sha1, $type1, $len1) = check_ref($ref1);
+    if ($type1 !~ /^(commit|tag)$/) {
+	die "400 Invalid commit reference\n";
+    }
+    
+    my ($sha2, $type2, $len2) = check_ref($ref2);
+    if ($type2 !~ /^(commit|tag)$/) {
+	die "400 Invalid commit reference\n";
+    }
+
+    git_cmd_try {
+	open(OLDSTDOUT, '>&', \*STDOUT) or die;
+	sysopen(OUT, $tmpdir.'/data', O_WRONLY) or die;
+	open(STDOUT, '>&', \*OUT) or die;
+	close(OUT);
+	
+	$repo->command_noisy('diff', $sha1.'..'.$sha2);
+
+	open(STDOUT, '>&', \*OLDSTDOUT);
+	close(OLDSTDOUT);
+    } "400 Failed to acquire patch file\n";
+		  
+    $have_data = 1;
 }
 
 sub get_sign_data(@)
@@ -230,6 +349,8 @@ sub make_compressed_data()
 
 	    open(STDIN,  '<&', \*RAW) or exit 127;
 	    open(STDOUT, '>&', \*OUT) or exit 127;
+	    close(RAW);
+	    close(OUT);
 
 	    exec(@c);
 	    exit 127;
