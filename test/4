@@ -1,0 +1,21 @@
+# This is a valid but unauthorized signature
+TAR /kernel/linux.git v3.0 linux-3.0/
+SIGN 836
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABAgAGBQJOgU87AAoJEJ2UPBAXAVFR8bMP/3n546WOWXyIHCifqX8eyDfz
+BTt25E4/RsAYCGdu9QqzSvIQ0m+TU/dfY+poaa5MK9gxUTHXQ8fWReiT4xXohggP
+BsYhxk6bEw/tb5//rs81iM2fCoAqGl5EV+2aRV3teKxC/xMEEJry5VKvm8++L0Be
+bq9UlitZlnZHuSYG5LQyLvv467tA8CcFoElErxXHoubFaLjGthwR8qxlNGMyCUdl
+Amm3tIdcbt5yc+Rffthv0RbeWJ35QZxPfiCljp7cwaFZGwvlueZWQ7HkZI1SEbJT
+5mZxFQl2rU9QWB8ycaRepqfwqS1R4OFwIt9qxzca2jffImAWPuaKyM4e4DXDiotX
+diomwbklAHa2ovB0UQ6EeEk8JaUfwhN+LhFahoOnrtQibKOeJ1b5/ekzo7vyrN4T
+FHTIyb6INE8dOdbvaMT4OC0bOoJqXue9SC85Qr8ekGe4h3YA9sDegGmOqorc+phx
+nxvL15YrZ4z4kxzcmkg8otKC1ogNmsOLf33byOnAo65iDkvuc/RbDzUbqYCRmFNq
+mP/Z+C0HurTR43eR2+Uhlxh2cFM6qZmlUDD2/UJPO95jGt3RFvfA2jcYX+ugmZ8u
+DhyFTV4/ALGLrCrTOAEucS/rXRPG0iU6ogOP+6k7n+ZdlGUKpVMBjoz3UFftNoTk
+TNXg1tSEHmI2OC0XfwOS
+=5v8b
+-----END PGP SIGNATURE-----
+PUT /kernel/linux-3.0-rogue.tar.gz

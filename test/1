@@ -1,0 +1,5 @@
+DATA 5
+abcd
+SIGN 2
+x
+PUT /test/abcd.txt

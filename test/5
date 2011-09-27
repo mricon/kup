@@ -1,0 +1,21 @@
+# This is a bad (invalid) signature
+TAR /kernel/linux.git v3.0 linux-3.0/
+SIGN 836
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABAgAGBQJOgVGVAAoJEEufR1CN4Qs8d/MQAKHJAyX52TfMfRpBvRRs72bw
+V22VqYcowXcGTJE6T9zKYR2/a5lCgMvVHGePKu/x9jSjDM+aAp0iIAhjAEft8KdS
+ztTpGRuZiDouGaCWPzI08aZmHm77uDw9vpWIxCodiIRgKzxBaQ6L9WZItu20SotF
+hNpfrlTEH1FbgwRSjRMZKmeGnA6OC57ETyq+zclxp7CIK7aIYKLtIuCFHgcd3CD6
+RMIjok/SS2zWOYda2VVbubIrNvVUrUg/1q4VCDD8Vsfav2KprJMlyaavw3bpc2+T
+80ZDuFSysHo9ZS4p+wCcTFcEELLJTre/SitAU77oOyauZeukmZNeAjjIMn5g3LI3
+4n2hWzCOOifQiVMPKFif/W+DVGRlz8hkwof1+Ht6l+FGjl5mh8XKamPEXAt8z3Z3
+uYZH7bizGYoj+PlGbEedax8ZUaViiuuLNHQlon7BIFoJdo5bvib69B/qIM0YOByp
+VgIaWb4aPF4p/B64VA3WELzGMtFE0HpPNFxh/uA2ZIPb6utcTMcAh1b914jNO76g
+I2KPSUUShhyFFRiAm5YnxqYxubR60S73g1utVU8+xrT+Otz8h3kG+hW3U2EB8sUB
+sbYdTsmcXgs+PYdCdWp5v1ytHk0lmr5Y4jjxmWBS5LEeltqZWotrAYeEXrJ/fEGA
+KKJBZoU/Nl5Zz9nx90gV
+=WTye
+-----END PGP SIGNATURE-----
+PUT /kernel/linux-3.0-bad.tar.gz
