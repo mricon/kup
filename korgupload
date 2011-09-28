@@ -178,9 +178,13 @@ sub is_clean_string($)
 
 # This returns true if the given argument is a valid filename in its
 # canonical form.  Double slashes, relative paths, control characters,
-# and malformed UTF-8 is not permitted.
+# and malformed UTF-8 is not permitted.  We cap the length of each
+# pathname component to 251 characters to we can add an extension
+# without worrying about it.
 sub is_valid_filename($)
 {
+    use bytes;
+
     my($f) = @_;
 
     return 0 if (!is_clean_string($f));
@@ -188,6 +192,18 @@ sub is_valid_filename($)
     return 0 if ($f =~ m:/$:);
     return 0 if ($f =~ m://:);
     return 0 if ($f =~ m:/(\.|\.\.)(/|$):);
+
+    # Make sure we can create a 255-byte-long filename after adding
+    # .bz2 or similar.  We can't use the obvious regexp here, because
+    # regexps operate on characters, not bytes.
+    my $n = 0;
+    my $nmax = 0;
+    for (my $i = 0; $i < length($f); $i++) {
+	my $c = substr($f, $i, 1);
+	$n = ($c eq '/') ? 0 : $n+1;
+	$nmax = ($n > $nmax) ? $n : $nmax;
+    }
+    return 0 if ($nmax > 251);
 
     return 1;
 }
