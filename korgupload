@@ -707,7 +707,7 @@ sub delete_path(@)
 
     my($file) = @args;
 
-    if (!is_valid_filename($file))
+    if (!is_valid_filename($file)) {
 	fatal("Invalid pathname in DELETE command");
     }
 
