@@ -22,8 +22,10 @@
 #	- creates a new directory
 # MOVE old-path new-path
 #	- moves <old-path> to <new-path>
-# LINK old-path:new-path
+# LINK old-path new-path
 #	- hard links <old-path> to <new-path>
+# DELETE old-path
+#	- removes <old-path>
 # DONE
 #	- optional command, terminates transaction
 #
@@ -31,8 +33,6 @@
 #
 # SYMLINK old-path:new-path
 #	- symlinks <old-path> to <new-path>
-# DELETE old-path
-#	- removes <old-path>
 #
 
 use strict;
@@ -697,6 +697,67 @@ sub move_or_link_file($@)
     unlock_tree();
 }
 
+sub delete_path(@)
+{
+    my(@args) = @_;
+
+    if (scalar(@args) != 1) {
+	fatal("Bad DELETE command");
+    }
+
+    my($file) = @args;
+
+    if (!is_valid_filename($file))
+	fatal("Invalid pathname in DELETE command");
+    }
+
+    if ($file =~ /\.(bz2|xz|sign)$/) {
+	fatal("DELETE of individual .bz2, .xz, or .sign files not supported");
+    }
+
+    lock_tree();
+
+    if (!-e $data_path.$file) {
+	fatal("DELETE of nonexistent object");
+    } elsif (-d $data_path.$file) {
+	if (!rmdir($data_path.$file)) {
+	    fatal("DELETE of directory failed");
+	}
+    } elsif (-f $data_path.$file) {
+	if ($file =~ /^(.*)\.gz$/) {
+	    my $stem = $1;
+
+	    if ((-e $data_path.$stem.'.gz' && ! -f _) ||
+		(-e $data_path.$stem.'.bz2' && ! -f _) ||
+		(-e $data_path.$stem.'.xz' && ! -f _) ||
+		(-e $data_path.$stem.'.sign' && ! -f _)) {
+		fatal("DELETE encountered files and non-files");
+	    }
+
+	    if (!unlink($data_path.$stem.'.gz') ||
+		!unlink($data_path.$stem.'.bz2') ||
+		!unlink($data_path.$stem.'.xz') ||
+		!unlink($data_path.$from_stem.'.sign')) {
+		fatal("DELETE of compressed file failed");
+	    }
+	} else {
+	    if ((-e $data_path.$file && ! -f _) ||
+		(-e $data_path.$file.'.sign' && ! -f _)) {
+		fatal("DELETE encountered files and non-files");
+	    }
+
+	    if (!unlink($data_path.$file) ||
+		!unlink($data_path.$file.'.sign')) {
+		fatal("DELETE of plain file failed");
+	    }
+	}
+    } else {
+	fatal("DELETE of non-directory/non-file not currently supported");
+    }
+
+    unlock_tree();
+}
+
 my $line;
 while (defined($line = <STDIN>)) {
     # Ignore lines with only whitespace or starting with #
@@ -731,6 +792,8 @@ while (defined($line = <STDIN>)) {
 	do_mkdir(@args);
     } elsif ($cmd eq 'MOVE' || $cmd eq 'LINK') {
 	move_or_link_file($cmd, @args);
+    } elsif ($cmd eq 'DELETE') {
+	delete_path(@args);
     } elsif ($cmd eq 'DONE') {
 	last;
     } else {
