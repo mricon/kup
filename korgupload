@@ -737,7 +737,7 @@ sub delete_path(@)
 	    if (!unlink($data_path.$stem.'.gz') ||
 		!unlink($data_path.$stem.'.bz2') ||
 		!unlink($data_path.$stem.'.xz') ||
-		!unlink($data_path.$from_stem.'.sign')) {
+		!unlink($data_path.$stem.'.sign')) {
 		fatal("DELETE of compressed file failed");
 	    }
 	} else {
