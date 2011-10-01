@@ -60,7 +60,7 @@ my $bufsiz    = 1024*1024;
 
 %ENV = ('PATH' => '/bin:/usr/bin',
 	'LANG' => 'C',
-	'SHELL' => '/bin/sh');
+	'SHELL' => '/bin/false'); # Nothing in this program should shell out
 
 setrlimit(RLIMIT_FSIZE, $max_data, RLIM_INFINITY);
 
