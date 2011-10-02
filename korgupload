@@ -137,6 +137,21 @@ sub url_unescape($)
     return $o;
 }
 
+# Return true if the supplied string is valid UTF-8 without special
+# characters
+sub is_clean_string($)
+{
+    no bytes;
+    # use feature 'unicode_strings';	-- is this needed here?
+
+    my($b) = @_;
+    my $f = decode('UTF-8', $b, Encode::FB_DEFAULT);
+
+    return 0 if ($f =~ m:[\x{0000}-\x{001f}\x{007f}-\x{00a0}\x{fffd}-\x{ffff}]:);
+    return 1;
+}    
+
+# Decode the argument line
 sub parse_line($)
 {
     my($line) = @_;
@@ -154,7 +169,7 @@ sub parse_line($)
 
 	foreach my $ra (@rawargs) {
 	    my $a = url_unescape($ra);
-	    return undef if (!defined($a));
+	    return undef if (!defined($a) || !is_clean_string($a));
 	    push(@args, $a);
 	}
     }
@@ -162,40 +177,29 @@ sub parse_line($)
     return ($cmd, @args);
 }
 
-# Return true if the supplied string is valid UTF-8 without special
-# characters
-sub is_clean_string($)
-{
-    no bytes;
-    # use feature 'unicode_strings';	-- is this needed here?
-
-    my($b) = @_;
-    my $f = decode('UTF-8', $b, Encode::FB_DEFAULT);
-
-    return 0 if ($f =~ m:[\x{0000}-\x{001f}\x{007f}-\x{00a0}\x{fffd}-\x{ffff}]:);
-    return 1;
-}    
-
 # This returns true if the given argument is a valid filename in its
-# canonical form.  Double slashes, relative paths, control characters,
-# and malformed UTF-8 is not permitted.  We cap the length of each
-# pathname component to 251 characters to we can add an extension
-# without worrying about it.
+# canonical form.  Double slashes, relative paths, dot files, control
+# characters, and malformed UTF-8 is not permitted.  We cap the length
+# of each pathname component to 100 bytes to we can add an extension
+# without worrying about it, and the entire pathname to 1024 bytes.
 sub is_valid_filename($)
 {
     use bytes;
 
     my($f) = @_;
 
-    return 0 if (!is_clean_string($f));
-    return 0 if ($f !~ m:^/:);
-    return 0 if ($f =~ m:/$:);
-    return 0 if ($f =~ m://:);
-    return 0 if ($f =~ m:/(\.|\.\.)(/|$):);
+    return 0 if (length($f) > 1024); # Reject ridiculously long paths
+    return 0 if (!is_clean_string($f)); # Reject bad UTF-8 and control characters
+    return 0 if ($f !~ m:^/:);	# Reject relative paths
+    return 0 if ($f =~ m:/$:);	# Reject paths ending in /
+    return 0 if ($f =~ m://:);	# Reject double slashes
+    return 0 if ($f =~ m:/\.:);	# Reject any filename component starting with dot,
+    				# including . and ..
 
-    # Make sure we can create a 255-byte-long filename after adding
-    # .bz2 or similar.  We can't use the obvious regexp here, because
-    # regexps operate on characters, not bytes.
+    # Make sure we can create a filename after adding .bz2 or similar.
+    # We can't use the obvious regexp here, because regexps operate on
+    # characters, not bytes.  The limit of 100 is semi-arbitrary, but
+    # we shouldn't need filenames that long.
     my $n = 0;
     my $nmax = 0;
     for (my $i = 0; $i < length($f); $i++) {
@@ -203,7 +207,7 @@ sub is_valid_filename($)
 	$n = ($c eq '/') ? 0 : $n+1;
 	$nmax = ($n > $nmax) ? $n : $nmax;
     }
-    return 0 if ($nmax > 251);
+    return 0 if ($nmax > 100);
 
     return 1;
 }
