@@ -1,0 +1,23 @@
+# This is a good signature, but should fail because it is
+# trying to put a control character in the filename by direct
+# encoding
+TAR /kernel/linux.git v3.0 linux-3.0/
+SIGN 836
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABAgAGBQJOgU2JAAoJEEufR1CN4Qs8C5kQAL51Y2k6vv3onC/RrbU0FqI5
+GK9Md9QNHgmKmVIA46N6Zrz7v8uOay89Ym42FxeNovhbCFsqnCy8Pvx9SGXTv3hZ
+p2uW0qkEoOZ2547Z94Isti8yf5FP2sqSw1/uBF65bgOEBK+JT4CrJukpRG6JmyWu
+yeLBGF/O77AKxOrXjshio16u1M4aj2gmW6DzaffwINvfW8bI3K2IpLcmaRrq1+/S
+96TKenHxVRrN6caJlTEx6SP7zOJ4uT+fnWEASZbArzooNJISsUW2fa1BI1DIN2wW
+Ks/wrwvKkkB/oug39GqLj2VKoOCp3eowW0Kqw71cd2i9gIkogywuRbMcrfd307Y0
+NP1JKm8sDLfPWPDIC9sr6Z5K9Zn6ZtAcvMEs7Cm3CHjPshW1tOAUPmwYby64QYXd
+uOpkHBaalwiKMYHtGp8XbbeNYV5nwVtPkcS9BvNlYUUimGpfzyTp6BJ+9WiZI90K
+w9iJYboSq11V201u9BUaziVFR2LV6e5LtHlvaUAZdc1d0mGIKFB6NG6ZDXnQwOVy
+dsune0aMc4aMljB60TcmNz37epf75FxYAFrI0OMmjYYC++TIDqDy7em8RPBExucT
+ZBt11ut69YuMWCchngLH2QgCzXxYIQFA1ZGku12JbqEX6X04oKUW4iKMttNEyrzd
+h/mvJKbIdp5jYxSjKxob
+=12rJ
+-----END PGP SIGNATURE-----
+PUT /kernel/.linux-3.0.tar.gz
