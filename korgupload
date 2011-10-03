@@ -126,7 +126,7 @@ sub url_unescape($)
 	    $o .= ' ';
 	} elsif ($c eq '%') {
 	    $c = substr($s, $i+1, 2);
-	    return undef if (length($c) != 2);
+	    return undef if ($c !~ /^[0-9a-f]{2}$/i);
 	    $o .= pack("C", hex $c);
 	    $i += 2;
 	} else {
