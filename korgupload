@@ -157,7 +157,7 @@ sub parse_line($)
     my($line) = @_;
     chomp $line;
 
-    if ($line !~ /^([A-Z0-9_]+)(|\s+(|\S|\S.*\S|))\s*$/) {
+    if ($line !~ /^([A-Z0-9_]+)(|\s+(|\S|\S.*\S))\s*$/) {
 	return undef;		# Invalid syntax
     }
 
