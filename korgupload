@@ -473,7 +473,7 @@ sub signature_valid()
     my $oldstderr;
     my $devnull;
 
-    # gpg likes to chat on the console no matter what...
+    # gpg(v) likes to chat on the console no matter what...
     open($devnull, '>', '/dev/null')
 	or fatal("Cannot open /dev/null");
     open($oldstdout, '>&', \*STDOUT)
@@ -487,14 +487,11 @@ sub signature_valid()
     close($devnull);
 
     my $status =
-	system('/usr/bin/gpg', '--batch', '--no-tty',
+	system('/usr/bin/gpgv',
+	       '--quiet',
 	       '--homedir', $tmpdir,
-	       '--no-options',
-	       '--no-auto-key-locate',
-	       '--no-default-keyring',
 	       '--keyring', $pgp_path."/${user_name}.gpg",
-	       '--display-charset', 'utf-8',
-	       '--verify', $tmpdir.'/sign', $tmpdir.'/data');
+	       $tmpdir.'/sign', $tmpdir.'/data');
 
     open(STDOUT, '>&', $oldstdout);
     close($oldstdout);
