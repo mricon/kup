@@ -200,7 +200,7 @@ sub is_valid_filename($)
     # Reject undesirable filename characters anywhere in the name.
     # This isn't inherently security-critical, and could be tuned if
     # users need it...
-    return 0 if ($f =~ m:[\!\"\$\&\'\*\:\;\<\>\?\\\`\|]:);
+    return 0 if ($f =~ m:[\!\"\$\&\'\*\;\<\>\?\\\`\|]:);
 
     # Make sure we can create a filename after adding .bz2 or similar.
     # We can't use the obvious regexp here, because regexps operate on
