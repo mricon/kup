@@ -1,6 +1,6 @@
-DATA 5
+DATA 5 %
 abcd
-SIGN 836
+SIGN 836 %
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 

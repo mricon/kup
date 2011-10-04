@@ -2,7 +2,7 @@
 # trying to put a control character in the filename by direct
 # encoding
 TAR /kernel/linux.git v3.0 linux-3.0/
-SIGN 836
+SIGN 836 %
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 

@@ -1,7 +1,7 @@
 # This is a good signature, but should fail because it is
 # trying to use an overlong filename
 TAR /kernel/linux.git v3.0 linux-3.0/
-SIGN 836
+SIGN 836 %
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 

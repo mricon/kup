@@ -1,6 +1,6 @@
 # This is a good signature
 DIFF /kernel/linux.git v2.6.39 v3.0
-SIGN 836
+SIGN 836 %
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 

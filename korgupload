@@ -42,7 +42,6 @@ use Encode qw(encode decode);
 use IPC::Open2 qw(open2);
 
 use File::Temp qw(tempdir);
-use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError) ;
 use BSD::Resource;
 use Fcntl qw(:DEFAULT :flock);
 use POSIX;
@@ -56,24 +55,53 @@ my $lock_file = '/home/hpa/kernel.org/test/lock';
 my $tmp_path  = '/home/hpa/kernel.org/test/tmp';
 my $pgp_path  = '/home/hpa/kernel.org/test/pgp';
 my $max_data  = 8*1024*1024*1024;
-my $bufsiz    = 1024*1024;
+my $bufsiz    = 256*1024;
 
+# Configurable timeouts
+my $timeout_command	= 30;
+my $timeout_data	= 300;	# Read min $bufsiz in this timespan
+my $timeout_compress	= 900;	# This can take a while, esp. xz
+
+# Scrub the environment completely
 %ENV = ('PATH' => '/bin:/usr/bin',
 	'LANG' => 'C',
 	'SHELL' => '/bin/false'); # Nothing in this program should shell out
 
-setrlimit(RLIMIT_FSIZE, $max_data, RLIM_INFINITY);
+# Make sure the user can't create insanely large files
+setrlimit(RLIMIT_FSIZE, $max_data, $max_data);
 
-umask(077);
-my $tmpdir = tempdir(DIR => $tmp_path, CLEANUP => 1);
-umask(002);
+# These programs are expected to accept the option
+# -9 for compression and -cd for decompression to stdout.
+my %zformats = (
+    '.gz'  => '/bin/gzip',
+    '.bz2' => '/usr/bin/bzip2',
+    '.xz'  => '/usr/bin/xz'
+);
 
 my $have_data = 0;
 my $have_sign = 0;
 
+# The standard function to call on bail
+sub fatal($) {
+    no bytes;
+
+    my($msg) = @_;
+    
+    $msg =~ s/[\x{0000}-\x{001f}\x{007f}-\x{00a0}\x{fffd}-\x{ffff}]/ /g;
+
+    syslog(LOG_CRIT, "%s", $msg);
+    die $msg."\n";
+}
+
 sub my_username() {
     my $whoami = getuid();
     my ($name,$passwd,$uid,$gid,$quota,$comment,$gcos,$dir,$shell,$expire) = getpwuid($whoami);
+
+    if (!defined($name) || $whoami != $uid) {
+	# We haven't called openlog() yet so we need to do it here
+	openlog("korgupload($whoami)", 'ndelay,pid', LOG_LOCAL5);
+	fatal("You don't exist, go away!");
+    }
 
     return (defined($name) && $whoami == $uid) ? $name : $whoami;
 }
@@ -82,14 +110,43 @@ my $user_name = my_username();
 
 openlog("korgupload($user_name)", 'ndelay,pid', LOG_LOCAL5);
 
-my $lock_fd   = undef;
+# Create a temporary directory with plenty of randomness
+sub make_temp_dir() {
+    my $root = $tmp_path.'/'.$user_name;
+    my $urand;
+    my $randbytes;
 
-sub fatal($) {
-    my($msg) = @_;
+    sysopen($urand, '/dev/urandom', O_RDONLY)
+	or fatal("/dev/urandom not accessible");
+    sysread($urand, $randbytes, 16); # 16 bytes = 128 bits
+    close($urand);
 
-    syslog(LOG_CRIT, "%s", $msg);
-    die $msg."\n";
+    if (length($randbytes) != 16) {
+	fatal("/dev/urandom returned a short read");
+    }
+
+    my $template = sprintf("%02x" x 16, unpack("C*", $randbytes));
+
+    # $template will be tainted, because it is computed from a file read;
+    # check that it looks like we expect and then untaint
+    if ($template !~ /^([0-9a-f]{32})$/) {
+	fatal("Internal error, a hex string is not a hex string");
+    }
+    $template = $1.'-XXXXXXXXXXXX';
+
+    umask(077);
+    my $dir = tempdir($template,
+		      DIR => $tmp_path.'/'.$user_name,
+		      CLEANUP => 1);
 }
+
+my $tmpdir = make_temp_dir();
+if (!defined($tmpdir)) {
+    fatal("Failed to create session directory");
+}
+umask(002);
+
+my $lock_fd   = undef;
 
 sub lock_tree()
 {
@@ -218,24 +275,83 @@ sub is_valid_filename($)
     return 1;
 }
 
-sub get_raw_data(@)
+sub get_blob($$@)
 {
-    my @args = @_;
+    my($cmd, $name, @args) = @_;
+    my($len, $format) = @args;
 
-    if (scalar(@args) != 1 || $args[0] !~ /^[0-9]+$/) {
-	fatal("Bad DATA command");
+    if (!defined($format) || $len !~ /^[0-9]+$/) {
+	fatal("Bad $cmd command");
     }
 
-    my $output = $tmpdir.'/data';
-    anyuncompress(\*STDIN => $output,
-		  BinModeOut => 1,
-		  InputLength => ($args[0] + 0),
-		  Append => 0,
-		  AutoClose => 0,
-		  Transparent => 1,
-		  BlockSize => $bufsiz)
-	or fatal("DATA decompression error: $AnyUncompressError");
-		  
+    my $zcmd;
+
+    if ($format eq '') {
+	undef $zcmd;
+    } elsif (!defined($zcmd = $zformats{'.'.$format})) {
+	fatal("Unsupported compression format");
+    }
+
+    my $output = $tmpdir.'/'.$name;
+
+    my $outfd;
+    my $writefd;
+    my $oldstdout;
+
+    local $SIG{'ALRM'} = sub { fatal("Timeout waiting for data"); };
+
+    open($outfd, '>', $output)
+	or fatal("Failed to open $cmd file");
+    binmode($outfd);
+    
+    if (defined($zcmd)) {
+	open($oldstdout, '>&', \*STDOUT) or die;
+	open(STDOUT, '>&', $outfd) or die;
+	close($outfd);
+	undef $outfd;
+
+	open($outfd, '|-', $zcmd, '-cd') or die;
+	binmode($outfd);
+
+	open(STDOUT, '>&', $oldstdout) or die;
+	close($oldstdout);
+    }
+
+    my $left = $len;
+    while ($left) {
+	my $blk = $left < $bufsiz ? $left : $bufsiz;
+	my $data;
+	my $rl;
+	
+	alarm($timeout_data);
+	$blk = read(STDIN, $data, $blk);
+	alarm(0);
+
+	if ($blk < 1) {
+	    fatal("End of stream before end of $cmd");
+	}
+
+	if (!print $outfd $data) {
+	    fatal("Write error during $cmd");
+	}
+
+	$left -= $blk;
+    }
+
+    close($outfd)
+	or fatal("Write error during $cmd");
+
+    return $len;
+}
+
+sub get_raw_data(@) {
+    my @args = @_;
+
+    if (get_blob('DATA', 'data', @args) > $max_data) {
+	# This should never happen, as we should have died already
+	fatal("DATA output impossibly large");
+    }
+
     $have_data = 1;
 }
 
@@ -370,21 +486,7 @@ sub get_sign_data(@)
 {
     my @args = @_;
 
-    if (scalar(@args) != 1 || $args[0] !~ /^[0-9]+$/) {
-	fatal("Bad SIGN command");
-    }
-
-    my $output = $tmpdir.'/sign';
-    anyuncompress(\*STDIN => $output,
-		  BinModeOut => 1,
-		  InputLength => ($args[0] + 0),
-		  Append => 0,
-		  AutoClose => 0,
-		  Transparent => 1,
-		  BlockSize => $bufsiz)
-	or fatal("SIGN decompression error: $AnyUncompressError");
-		  
-    if ((-s $output) >= 65536) {
+    if (get_blob('SIGN', 'data.sign', @args) >= 65536) {
 	fatal("SIGN output impossibly large");
     }
 
@@ -396,15 +498,10 @@ sub make_compressed_data()
     die if (!$have_data);
 
     my %workers;
-    my @cmds = (['/bin/gzip', '-9'],
-		['/usr/bin/bzip2', '-9'],
-		['/usr/bin/xz', '-9']);
-    my @exts = ('.gz', '.bz2', '.xz');
     my $nworkers = 0;
 
-    for (my $i = 0; $i < scalar @cmds; $i++) {
-	my @c = @{$cmds[$i]};
-	my $e = $exts[$i];
+    foreach my $e (keys(%zformats)) {
+	my @c = ($zformats{$e}, '-9');
 
 	my $w = fork();
 
@@ -413,15 +510,11 @@ sub make_compressed_data()
 	}
 
 	if ($w == 0) {
-	    sysopen(RAW, $tmpdir.'/data', O_RDONLY)
+	    sysopen(STDIN, $tmpdir.'/data', O_RDONLY)
 		or exit 127;
-	    sysopen(OUT, $tmpdir.'/data'.$e, O_WRONLY|O_CREAT|O_TRUNC, 0666)
+	    sysopen(STDOUT, $tmpdir.'/data'.$e,
+		    O_WRONLY|O_CREAT|O_TRUNC, 0666)
 		or exit 127;
-
-	    open(STDIN,  '<&', \*RAW) or exit 127;
-	    open(STDOUT, '>&', \*OUT) or exit 127;
-	    close(RAW);
-	    close(OUT);
 
 	    exec {$c[0]} @c;
 	    exit 127;
@@ -430,6 +523,15 @@ sub make_compressed_data()
 	$workers{$w}++;
 	$nworkers++;
     }
+
+    local $SIG{'ALRM'} = sub {
+	foreach my $c (keys %workers) {
+	    kill('TERM', $c);
+	}
+	fatal("Timeout compressing output data");
+    };
+
+    alarm($timeout_compress);
 
     while ($nworkers) {
 	my $w = wait();
@@ -447,6 +549,8 @@ sub make_compressed_data()
 
 	$nworkers--;
     }
+
+    alarm(0);
 }
 
 sub make_timestamps_match()
@@ -455,20 +559,17 @@ sub make_timestamps_match()
 
     my $now = time();
     
-    utime($now, $now, $tmpdir.'/data');
-    utime($now, $now, $tmpdir.'/data.gz');
-    utime($now, $now, $tmpdir.'/data.bz2');
-    utime($now, $now, $tmpdir.'/data.xz');
-    utime($now, $now, $tmpdir.'/sign');
+    foreach my $e ('', keys(%zformats), '.sign') {
+	utime($now, $now, $tmpdir.'/data'.$e);
+    }
 }
 
 sub cleanup()
 {
-    unlink($tmpdir.'/data');
-    unlink($tmpdir.'/data.gz');
-    unlink($tmpdir.'/data.bz2');
-    unlink($tmpdir.'/data.xz');
-    unlink($tmpdir.'/sign');
+    foreach my $e ('', keys(%zformats), '.sign') {
+	unlink($tmpdir.'/data'.$e);
+    }
+
     $have_data = 0;
     $have_sign = 0;
 }
@@ -497,7 +598,7 @@ sub signature_valid()
 	       '--quiet',
 	       '--homedir', $tmpdir,
 	       '--keyring', $pgp_path."/${user_name}.gpg",
-	       $tmpdir.'/sign', $tmpdir.'/data');
+	       $tmpdir.'/data.sign', $tmpdir.'/data');
 
     open(STDOUT, '>&', $oldstdout);
     close($oldstdout);
@@ -505,6 +606,17 @@ sub signature_valid()
     close($oldstderr);
 
     return $status == 0;
+}
+
+# Return true if the filename has one of the extensions in the list
+sub has_extension($@) {
+    my($file, @exts) = @_;
+
+    foreach my $e (@exts) {
+	return 1 if (substr($file, -length($e)) eq $e);
+    }
+
+    return 0;
 }
 
 sub put_file(@)
@@ -532,60 +644,54 @@ sub put_file(@)
 	fatal("Invalid filename in PUT command");
     }
 
+    my @install_ext;
+    my @conflic_ext;
+    my $stem;
+
     if ($file =~ /^(.*)\.gz$/) {
-	my $stem = $1;
+	$stem = $1;
+
 	make_compressed_data();
-	make_timestamps_match();
 
-	lock_tree();
-
-	if (-e $data_path.$stem) {
-	    fatal("Filename conflict (compressed and uncompressed)");
-	}
-	if ((-e $data_path.$stem.'.gz' && ! -f _) ||
-	    (-e $data_path.$stem.'.bz2' && ! -f _) ||
-	    (-e $data_path.$stem.'.xz' && ! -f _) ||
-	    (-e $data_path.$stem.'.sign' && ! -f _)) {
-	    fatal("Trying to overwrite a non-file");
-	}
-
-	if (!rename($tmpdir.'/data.gz',  $data_path.$stem.'.gz') ||
-	    !rename($tmpdir.'/data.bz2', $data_path.$stem.'.bz2') ||
-	    !rename($tmpdir.'/data.xz',  $data_path.$stem.'.xz') ||
-	    !rename($tmpdir.'/sign',     $data_path.$stem.'.sign')) {
-	    unlink($data_path.$stem.'.gz');
-	    unlink($data_path.$stem.'.bz2');
-	    unlink($data_path.$stem.'.xz');
-	    unlink($data_path.$stem.'.sign');
-	    fatal("Failed to install files");
-	}
-	unlock_tree();
-    } elsif ($file =~ /\.(sign|bz2|xz)$/) {
-	fatal("Cannot install .sign, .bz2 or .xz files directly");
+	@conflic_ext = ('');
+	@install_ext = ('.sign', keys(%zformats));
+    } elsif (has_extension($file, '.sign', keys(%zformats))) {
+	fatal("Cannot install auxiliary files directly");
     } else {
-	make_timestamps_match();
+	$stem = $file;
 
-	lock_tree();
-
-	if (-e $data_path.$file.'.gz' ||
-	    -e $data_path.$file.'.bz2' ||
-	    -e $data_path.$file.'.xz') {
-	    fatal("Filename conflict (compressed and uncompressed)");
-	}
-	if ((-e $data_path.$file && ! -f _) ||
-	    (-e $data_path.$file.'.sign' && ! -f _)){
-	    fatal("Attempting to overwrite a non-file");
-	}
-
-	if (!rename($tmpdir.'/data', $data_path.$file) ||
-	    !rename($tmpdir.'/sign', $data_path.$file.'.sign')) {
-	    unlink($data_path.$file);
-	    unlink($data_path.$file.'.sign');
-	    fatal("Failed to install files");
-	}
-	unlock_tree();
+	@conflic_ext = keys(%zformats);
+	@install_ext = ('.sign', '');
     }
 
+    make_timestamps_match();
+
+    lock_tree();
+
+    foreach my $e (@conflic_ext) {
+	if (-e $data_path.$stem.$e) {
+	    fatal("Filename conflict (compressed and uncompressed)");
+	}
+    }
+
+    my $ok = 1;
+    foreach my $e ('.sign', keys(%zformats)) {
+	if (-e $data_path.$stem.$e && ! -f _) {
+	    fatal("Trying to overwrite a non-file");
+	}
+    }
+    
+    my @undoes = ();
+    foreach my $e ('.sign', keys(%zformats)) {
+	my $target = $data_path.$stem.$e;
+	if (!rename($tmpdir.'/data'.$e, $target)) {
+	    unlink(@undoes);
+	    fatal("Failed to install files");
+	}
+	push(@undoes, $target);
+    }
+
+    unlock_tree();
     cleanup();
 }
 
@@ -603,17 +709,20 @@ sub do_mkdir(@)
 	fatal("Invalid filename in MKDIR command");
     }
 
-    if ($file =~ /\.(gz|bz2|xz|sign)$/) {
-	fatal("Protected filename space");
+    my @badext = ('.sign', keys(%zformats));
+
+    foreach my $e (@badext) {
+	if (substr($file, -length($e)) eq $e) {
+	    fatal("Protected filename space");
+	}
     }
 
     lock_tree();
 
-    if (-e $data_path.$file.'.gz' ||
-	-e $data_path.$file.'.bz2' ||
-	-e $data_path.$file.'.xz' ||
-	-e $data_path.$file.'.sign') {
-	fatal("Filename conflict (file and directory)");
+    foreach my $e (@badext) {
+	if (-e $data_path.$file.$e) {
+	    fatal("Filename conflict (file and directory)");
+	}
     }
 
     if (!mkdir($data_path.$file, 0777)) {
@@ -628,10 +737,21 @@ sub do_rename($$) {
 
     return rename($f, $t);
 }
+sub undo_rename($$) {
+    my($f, $t) = @_;
+
+    rename($t, $f);
+}
+
 sub do_link($$) {
     my($f,$t) = @_;
 
     return link($f, $t);
+}
+sub undo_link($$) {
+    my($f,$t) = @_;
+
+    unlink($t);
 }
 
 sub move_or_link_file($@)
@@ -642,7 +762,8 @@ sub move_or_link_file($@)
 	fatal("Bad $cmd command");
     }
 
-    my $op = ($cmd eq 'MOVE') ? \&do_rename : \&do_link;
+    my $op   = ($cmd eq 'MOVE') ? \&do_rename   : \&do_link;
+    my $unop = ($cmd eq 'MOVE') ? \&undo_rename : \&undo_link;
 
     my($from, $to) = @args;
 
@@ -650,71 +771,89 @@ sub move_or_link_file($@)
 	fatal("Invalid filename in $cmd command");
     }
 
-    if ($from =~ /\.(bz2|xz|sign)$/) {
-	fatal("$cmd of individual .bz2, .xz, or .sign files not supported");
-    }
-    if ($to =~ /\.(bz2|xz|sign)$/) {
-	fatal("$cmd to filename ending in .bz2, .xz or .sign");
-    }
-    
-    if ($from =~ /\.gz$/ && $to !~ /\.gz$/) {
-	fatal("$cmd of .gz file must itself end in .gz");
-    }
-    if ($from !~ /\.gz$/ && $to =~ /\.gz$/) {
-	fatal("$cmd of non-.gz file must not end in .gz");
+    if ($from =~ /\.gz$/) {
+	if ($to !~ /\.gz$/) {
+	    fatal("$cmd of .gz file must itself end in .gz");
+	}
+    } elsif (has_extension($from, '.sign', keys(%zformats))) {
+	fatal("$cmd to auxiliary files not supported");
+    } elsif (has_extension($to, '.sign', keys(%zformats))) {
+	fatal("$cmd to auxiliary filename space");
     }
 
     lock_tree();
 
+    my $from_stem;
+    my $to_stem;
+    my @conflic_ext = ();
+    my @install_ext = ();
+    my $type;
+
     if (!-e $data_path.$from) {
 	fatal("$cmd of nonexistent object");
     } elsif (-d $data_path.$from) {
-	if (!$op->($data_path.$from, $data_path.$to)) {
+	if ($cmd ne 'MOVE') {
+	    fatal("Cannot $cmd a directory");
+	}
+
+	if (-e $data_path.$to) {
+	    fatal("Directory MOVE destination busy");
+	}
+
+	if (!rename($data_path.$from, $data_path.$to)) {
 	    fatal("$cmd of directory failed");
 	}
+
+	unlock_tree();
+	return;
     } elsif (-f $data_path.$from) {
 	if ($from =~ /^(.*)\.gz$/) {
-	    my $from_stem = $1;
+	    $from_stem = $1;
 
 	    die if ($to !~ /^(.*)\.gz$/); # Should already be checked
-	    my $to_stem = $1;
+	    $to_stem = $1;
 
-	    if (-e $data_path.$to_stem) {
-		fatal("Filename conflict (compressed and uncompressed)");
-	    }
+	    @conflic_ext = ('');
+	    @install_ext = ('.sign', keys(%zformats));
 
-	    if ((-e $data_path.$to_stem.'.gz' && ! -f _) ||
-		(-e $data_path.$to_stem.'.bz2' && ! -f _) ||
-		(-e $data_path.$to_stem.'.xz' && ! -f _) ||
-		(-e $data_path.$to_stem.'.sign' && ! -f _)) {
-		fatal("Trying to overwrite a non-file");
-	    }
-
-	    if (!$op->($data_path.$from_stem.'.gz',   $data_path.$to_stem.'.gz') ||
-		!$op->($data_path.$from_stem.'.bz2',  $data_path.$to_stem.'.bz2') ||
-		!$op->($data_path.$from_stem.'.xz',   $data_path.$to_stem.'.xz') ||
-		!$op->($data_path.$from_stem.'.sign', $data_path.$to_stem.'.sign')) {
-		fatal("$cmd of compressed file failed");
-	    }
+	    $type = 'compressed';
 	} else {
-	    if (-e $data_path.$to.'.gz' ||
-		-e $data_path.$to.'.bz2' ||
-		-e $data_path.$to.'.xz') {
-		fatal("Filename conflict (compressed and uncompressed)");
-	    }
-
-	    if ((-e $data_path.$to && ! -f _) ||
-		(-e $data_path.$to.'.sign' && ! -f _)) {
-		fatal("Trying to overwrite non-file");
-	    }
-
-	    if (!$op->($data_path.$from, $data_path.$to) ||
-		!$op->($data_path.$from.'.sign', $data_path.$to.'.sign')) {
-		fatal("$cmd of plain file failed");
-	    }
+	    $from_stem = $from;
+	    $to_stem   = $to;
+	    
+	    @conflic_ext = keys(%zformats);
+	    @install_ext = ('.sign', '');
+	    
+	    $type = 'plain';
 	}
     } else {
 	fatal("$cmd of non-directory/non-file not currently supported");
+    }
+
+    # If we continue here we're processing a file...
+
+    foreach my $e (@conflic_ext) {
+	if (-e $data_path.$to_stem.$e) {
+	    fatal("Filename conflict (compressed and uncompressed)");
+	}
+    }
+
+    foreach my $e (@install_ext) {
+	if (-e $data_path.$to_stem.$e && ! -f _) {
+	    fatal("Trying to overwrite a non-file");
+	}
+    }
+
+    my @undoes = ();
+    foreach my $e (@install_ext) {
+	my $a = [$data_path.$from_stem.$e, $data_path.$to_stem.$e];
+	if (!$op->(@$a)) {
+	    foreach $u (@undoes) {
+		$unop->(@$u);
+	    }
+	    fatal("$cmd of $type file failed");
+	}
+	push(@undoes, $a);
     }
 
     unlock_tree();
@@ -734,11 +873,16 @@ sub delete_path(@)
 	fatal("Invalid pathname in DELETE command");
     }
 
-    if ($file =~ /\.(bz2|xz|sign)$/) {
-	fatal("DELETE of individual .bz2, .xz, or .sign files not supported");
+    if ($file !~ /\.gz$/ &&
+	has_extension($file, '.sign', keys(%zformats))) {
+	fatal("DELETE of auxiliary files not supported");
     }
 
     lock_tree();
+
+    my $stem;
+    my @exts;
+    my $type;
 
     if (!-e $data_path.$file) {
 	fatal("DELETE of nonexistent object");
@@ -746,43 +890,52 @@ sub delete_path(@)
 	if (!rmdir($data_path.$file)) {
 	    fatal("DELETE of directory failed");
 	}
+	unlock_tree();
+	return;
     } elsif (-f $data_path.$file) {
 	if ($file =~ /^(.*)\.gz$/) {
-	    my $stem = $1;
-
-	    if ((-e $data_path.$stem.'.gz' && ! -f _) ||
-		(-e $data_path.$stem.'.bz2' && ! -f _) ||
-		(-e $data_path.$stem.'.xz' && ! -f _) ||
-		(-e $data_path.$stem.'.sign' && ! -f _)) {
-		fatal("DELETE encountered files and non-files");
-	    }
-
-	    if (!unlink($data_path.$stem.'.gz') ||
-		!unlink($data_path.$stem.'.bz2') ||
-		!unlink($data_path.$stem.'.xz') ||
-		!unlink($data_path.$stem.'.sign')) {
-		fatal("DELETE of compressed file failed");
-	    }
+	    $stem = $1;
+	    @exts = ('.sign', keys(%zformats));
+	    $type = 'compressed';
 	} else {
-	    if ((-e $data_path.$file && ! -f _) ||
-		(-e $data_path.$file.'.sign' && ! -f _)) {
-		fatal("DELETE encountered files and non-files");
-	    }
-
-	    if (!unlink($data_path.$file) ||
-		!unlink($data_path.$file.'.sign')) {
-		fatal("DELETE of plain file failed");
-	    }
+	    $stem = $file;
+	    @exts = ('.sign', '');
+	    $type = 'plain';
 	}
     } else {
 	fatal("DELETE of non-directory/non-file not currently supported");
     }
 
+    # If we continue here we're processing a file...
+
+    foreach my $e (@exts) {
+	if (-e $data_path.$stem.$e && ! -f _) {
+	    fatal("DELETE encountered files and non-files");
+	}
+    }
+
+    foreach my $e (@exts) {
+	if (!unlink($data_path.$stem.$e)) {
+	    fatal("DELETE of $type file failed");
+	}
+    }
+
     unlock_tree();
 }
 
+sub get_command()
+{
+    local $SIG{'ALRM'} = sub { fatal("Timeout waiting for command"); };
+
+    alarm($timeout_command);
+    my $line = <STDIN>;
+    alarm(0);
+
+    return $line;
+}
+
 my $line;
-while (defined($line = <STDIN>)) {
+while (defined($line = get_command())) {
     # Ignore lines with only whitespace or starting with #
     next if ($line =~ /^\s*(|\#.*)$/);
 

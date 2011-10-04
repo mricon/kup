@@ -1,6 +1,6 @@
 # This is a non-detached signature
 TAR /kernel/linux.git v3.0 linux-3.0/
-SIGN 930
+SIGN 930 %
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 

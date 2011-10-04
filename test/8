@@ -1,6 +1,6 @@
 # Test of data contents that doesn't end in newline
-DATA 9
-nonewlineSIGN 836
+DATA 9 %
+nonewlineSIGN 836 %
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 

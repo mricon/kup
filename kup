@@ -178,8 +178,43 @@ sub close_output()
     }
 }
 
-sub cat_file($$) {
-    my($cmd, $file) = @_;
+sub get_data_format($)
+{
+    my($data) = @_;
+
+    my $magic2 = substr($data, 0, 2);
+    my $magic4 = substr($data, 0, 4);
+    my $magic6 = substr($data, 0, 6);
+    
+    my $fmt = '%';		# Meaning straight binary
+    
+    if ($magic2 eq "\037\213") {
+	$fmt = 'gz';
+    } elsif ($magic4 =~ /^BZh[1-9]$/) {
+	# The primary bzip2 magic is so crappy, so look
+	# for the magic number of the first packet
+	# (either a compression packet or an end of file packet.)
+	# Funny enough, the magics on the packets are better
+	# than the magics on the file format, and even so
+	# they managed to pick a magic for the compression
+	# packet which has no non-ASCII bytes in it...
+	
+	my $submagic = substr($data, 4, 6);
+	
+	if ($submagic eq "\x31\x41\x59\x26\x53\x59" ||
+	    $submagic eq "\x17\x72\x45\x38\x50\x90") {
+	    $fmt = 'bz2';
+	}
+    } elsif ($magic6 eq "\x{fd}7zXZ\0") {
+	$fmt = 'xz';
+    }
+
+    return $fmt;
+}
+
+sub cat_file($$$)
+{
+    my($cmd, $file, $fmt) = @_;
 
     my $data;
     open($data, '<', $file)
@@ -192,7 +227,14 @@ sub cat_file($$) {
     binmode($data);
 
     if ($real) {
-	print "${cmd} ${size}\n";
+	if ($size < 2) {
+	    # Must be a plain file
+	    $fmt = '%';
+	}
+
+	if (defined($fmt)) {
+	    print "${cmd} ${size} ${fmt}\n";
+	}
 
 	my $blk;
 	my $len;
@@ -205,8 +247,12 @@ sub cat_file($$) {
 		die "$0: premature end of data (file changed?): $file\n";
 	    }
 
-	    print $blk;
+	    if (!defined($fmt)) {
+		$fmt = get_data_format($fmt);
+		print "${cmd} ${file} ${fmt}\n";
+	    }
 
+	    print $blk;
 	    $size -= $len;
 	}
     }
@@ -283,7 +329,7 @@ sub cmd_put()
 	# already a compressed file we send it as-is and let the
 	# server decompress it.
 
-	cat_file('DATA', $file);
+	cat_file('DATA', $file, undef);
     }
 
     my $sign   = shift @args;
@@ -304,7 +350,7 @@ sub cmd_put()
     # DWIM: .bz2, .xz -> .gz
     $remote =~ s/\.(bz2|xz)$/\.gz/;
 
-    cat_file('SIGN', $sign);
+    cat_file('SIGN', $sign, undef);
 
     if ($real) {
 	print 'PUT ', url_encode($remote), "\n";
