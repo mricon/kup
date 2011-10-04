@@ -189,6 +189,8 @@ sub cat_file($$) {
     }
     my $size = -s _;
 
+    binmode($data);
+
     if ($real) {
 	print "${cmd} ${size}\n";
 
