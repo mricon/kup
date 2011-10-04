@@ -139,7 +139,7 @@ sub url_encode($)
     my $o = '';
 
     foreach my $c (unpack("C*", $s)) {
-	if ($c > 32 && $c < 126 && $c != 43) {
+	if ($c > 32 && $c < 126 && $c != 37 && $c != 43) {
 	    $o .= chr($c);
 	} elsif ($c == 32) {
 	    $o .= '+';
