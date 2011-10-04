@@ -193,8 +193,14 @@ sub is_valid_filename($)
     return 0 if ($f !~ m:^/:);	# Reject relative paths
     return 0 if ($f =~ m:/$:);	# Reject paths ending in /
     return 0 if ($f =~ m://:);	# Reject double slashes
-    return 0 if ($f =~ m:/\.:);	# Reject any filename component starting with dot,
-    				# including . and ..
+    
+    # Reject filename components starting with dot or dash, covers . and ..
+    return 0 if ($f =~ m:/[\.\-]:);
+
+    # Reject undesirable filename characters anywhere in the name.
+    # This isn't inherently security-critical, and could be tuned if
+    # users need it...
+    return 0 if ($f =~ m:[\!\"\$\&\'\*\:\;\<\>\?\\\`\|]:);
 
     # Make sure we can create a filename after adding .bz2 or similar.
     # We can't use the obvious regexp here, because regexps operate on
