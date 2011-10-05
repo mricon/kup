@@ -248,7 +248,7 @@ sub cat_file($$$)
 	    }
 
 	    if (!defined($fmt)) {
-		$fmt = get_data_format($fmt);
+		$fmt = get_data_format($blk);
 		print "${cmd} ${file} ${fmt}\n";
 	    }
 
