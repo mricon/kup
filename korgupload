@@ -848,7 +848,7 @@ sub move_or_link_file($@)
     foreach my $e (@install_ext) {
 	my $a = [$data_path.$from_stem.$e, $data_path.$to_stem.$e];
 	if (!$op->(@$a)) {
-	    foreach $u (@undoes) {
+	    foreach my $u (@undoes) {
 		$unop->(@$u);
 	    }
 	    fatal("$cmd of $type file failed");
