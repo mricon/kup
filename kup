@@ -27,10 +27,10 @@ sub untaint($) {
 }
 
 $ENV{'PATH'} = untaint($ENV{'PATH'});
-
 if (defined $ENV{'KUP_RSH'}) {
-    $opt{'rsh'} = untaint($ENV{'KUP_RSH'});
+    $opt{'rsh'} = $ENV{'KUP_RSH'};
 }
+delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};   # Make %ENV safer
 
 # We process the command set twice, once as a dry run and one for real,
 # to catch as many errors as early as possible
@@ -163,8 +163,12 @@ sub setup_output()
     # In batch mode, we dump the output to stdout so the user can
     # aggregate it best they wish
     unless ($opt{'batch'}) {
-	open(STDOUT, '|-', $opt{'rsh'})
-	    or die "$0: cannot execute rsh command ", $opt{'rsh'}, "\n";
+	if ($opt{'rsh'} !~ /^([-a-zA-Z0-9._=@:\s]+)$/) {
+	    die "$0: suspicious KUP_RSH command (if this is bogus let hpa know)\n";
+	}
+	my $rsh = $1;
+	open(STDOUT, '|-', $rsh)
+	    or die "$0: cannot execute rsh command ", $rsh, "\n";
     }
     binmode(STDOUT);
 }
