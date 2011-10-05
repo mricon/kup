@@ -3,3 +3,38 @@ shell, configured with the following options in authorized_keys or
 similar:
 
 command="/path/to/korgupload",no-agent-forwarding,no-port-forwarding,no-pty,no-user-rc,no-X11-forwarding <pubkey>
+
+Each user should have their own UID, as Unix user permissions are used
+for specific tree access control.
+
+
+The following pathnames in korgupload need to be customized
+appropriately.  They should all be disjoint!
+
+my $data_path = '/home/hpa/kernel.org/test/pub';
+
+This is the path under which files are uploaded.
+
+my $git_path  = '/home/hpa/kernel.org/test/git';
+
+This is the path where git trees (for the TAR and DIFF options) are
+available.  Those should be readonly for the uploaders.
+
+my $lock_file = '/home/hpa/kernel.org/test/lock';
+
+A common lock file for $data_path.  No program should modify the
+content in $data_path without holding an flock on this file.  Should
+be readonly for the uploaders.
+
+my $tmp_path  = '/home/hpa/kernel.org/test/tmp';
+
+A directory containing an empty directory for each user (named for
+that user), owned by that user and mode 700.  This needs to be on the
+same filesystem as $data_path, since the script expects to create
+files in this directory and rename() them into $data_path.
+
+my $pgp_path  = '/home/hpa/kernel.org/test/pgp';
+
+A directory containing a GnuPG public keyring for each user, named
+<user>.gpg and readable (but not writable) by that user.
+
