@@ -76,7 +76,7 @@ sub is_clean_string($)
 # This returns true if the given argument is a valid filename in its
 # canonical form.  Double slashes, relative paths, dot files, control
 # characters, and malformed UTF-8 is not permitted.  We cap the length
-# of each pathname component to 100 bytes to we can add an extension
+# of each pathname component to 100 bytes so we can add an extension
 # without worrying about it, and the entire pathname to 1024 bytes.
 sub is_valid_filename($)
 {
@@ -126,7 +126,7 @@ sub parse_global_options()
 	    $opt{'rsh'} = shift(@ARGV);
 	} elsif ($arg eq '-h' || $arg eq '--help') {
 	    usage(0);
-	} elsif ($arg =~ /^(\-e|\-\-rsh\=)(.+)$/) {
+	} elsif ($arg =~ /^(-e|--rsh=)(.+)$/) {
 	    $opt{'rsh'} = $2;
 	} else {
 	    die "$0: unknown option: $arg\n";
@@ -274,7 +274,7 @@ sub cmd_put()
 	if ($remote_tree eq '-p' || $remote_tree eq '--prefix') {
 	    $prefix = shift @args;
 	    $remote_tree = shift @args;
-	} elsif ($remote_tree =~ /^(\-p|\-\-prefix=)(.+)$/) {
+	} elsif ($remote_tree =~ /^(-p|--prefix=)(.+)$/) {
 	    $prefix = $2;
 	    $remote_tree = shift @args;
 	}
@@ -321,7 +321,7 @@ sub cmd_put()
 	    print 'DIFF ', url_encode($remote_tree), ' ',
 		url_encode($ref1), ' ', url_encode($ref2), "\n";
 	}
-    } elsif ($file =~ /^\-/) {
+    } elsif ($file =~ /^-/) {
 	die "$0: unknown option to put command: $file\n";
     } else {
 	# Plain data blob.  We don't actively attempt to compress it
@@ -348,7 +348,7 @@ sub cmd_put()
     }
     
     # DWIM: .bz2, .xz -> .gz
-    $remote =~ s/\.(bz2|xz)$/\.gz/;
+    $remote =~ s/\.(bz2|xz)$/.gz/;
 
     cat_file('SIGN', $sign, undef);
 
@@ -397,7 +397,7 @@ sub cmd_delete()
     }
 
     # DWIM: .bz2, .xz -> .gz
-    $remote =~ s/\.(bz2|xz)$/\.gz/;
+    $remote =~ s/\.(bz2|xz)$/.gz/;
 
     if ($real) {
 	print 'DELETE ', url_encode($remote), "\n";
@@ -420,7 +420,7 @@ sub cmd_move_link($)
 	die "$0: invalid pathname: $from\n";
     }
 
-    if ($to =~ /\/$/) {
+    if ($to =~ m:/$:) {
 	# Syntactic sugar: allow specifying a directory only by ending in /
 	if ($from =~ m:^(.*/|)([^/]+)$:) {
 	    $to .= $2;
@@ -435,8 +435,8 @@ sub cmd_move_link($)
 	die "$0: cannot explicitly move .sign files\n";
     }
     if ($from =~ /\.(gz|bz2|xz)$/ && $to =~ /\.(gz|bz2|xz)$/) {
-	$from =~ s/\.(bz|bz2|xz)$/\.gz/;
-	$to   =~ s/\.(bz|bz2|xz)$/\.gz/;
+	$from =~ s/\.(bz2|xz)$/.gz/;
+	$to   =~ s/\.(bz2|xz)$/.gz/;
     } elsif ($from =~ /\.(gz|bz2|xz)$/ || $to =~ /\.(gz|bz2|xz)$/) {
 	die "$0: cannot move to or from compressed filenames\n";
     }
