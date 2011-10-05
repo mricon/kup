@@ -249,7 +249,7 @@ sub cat_file($$$)
 
 	    if (!defined($fmt)) {
 		$fmt = get_data_format($blk);
-		print "${cmd} ${file} ${fmt}\n";
+		print "${cmd} ${size} ${fmt}\n";
 	    }
 
 	    print $blk;
