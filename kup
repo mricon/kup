@@ -172,11 +172,11 @@ sub setup_output()
     # In batch mode, we dump the output to stdout so the user can
     # aggregate it best they wish
     unless ($opt{'batch'}) {
-	if ($opt{'rsh'} !~ /^([-a-zA-Z0-9._=@:\s]+)$/) {
+	if ($opt{'rsh'} !~ /^([-a-zA-Z0-9._=\@:\s]+)$/) {
 	    die "$0: suspicious KUP_RSH command (if this is bogus let hpa know)\n";
 	}
 	my $rsh = $1;
-	if ($opt{'host'} != /^([-a-zA-Z0-9._@]+)$/) {
+	if ($opt{'host'} !~ /^([-a-zA-Z0-9._\@]+)$/) {
 	    die "$0: suspicious KUP_HOST (if this is bogus let hpa know)\n";
 	}
 	$rsh .= " \Q$1";
