@@ -291,8 +291,8 @@ sub cmd_put()
 	if ($remote_tree eq '-p' || $remote_tree eq '--prefix') {
 	    $prefix = shift @args;
 	    $remote_tree = shift @args;
-	} elsif ($remote_tree =~ /^(-p|--prefix=)(.+)$/) {
-	    $prefix = $2;
+	} elsif ($remote_tree =~ /^--prefix=(.+)$/) {
+	    $prefix = $1;
 	    $remote_tree = shift @args;
 	}
 
