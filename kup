@@ -59,7 +59,7 @@ sub usage($) {
     print STDERR "   mkdir remote_path\n";
     print STDERR "   mv|move old_path new_path\n";
     print STDERR "   ln|link old_path new_path\n";
-    print STDERR "   rm|delete old_path\n";
+    print STDERR "   rm|del|delete old_path\n";
 
     exit $err;
 }
