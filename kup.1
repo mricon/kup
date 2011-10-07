@@ -1,0 +1,127 @@
+.\" -----------------------------------------------------------------------
+.\"   
+.\"   Copyright 2011 Intel Corporation; author: H. Peter Anvin
+.\"
+.\"   This program is free software; you can redistribute it and/or modify
+.\"   it under the terms of the GNU General Public License as published by
+.\"   the Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+.\"   Boston MA 02110-1301, USA; either version 2 of the License, or
+.\"   (at your option) any later version; incorporated herein by reference.
+.\"
+.\" -----------------------------------------------------------------------
+.TH KUP "1" "2011" "kernel.org upload utility" "kernel.org"
+.SH NAME
+kup \- kernel.org upload utility
+.SH SYNOPSIS
+\fBkup\fP [\fIglobal options\fP] \fIcommand\fP [\fB\-\-\fP \fIcommand...\fP]
+.SH DESCRIPTION
+.PP
+This utility is used to upload files to \fIkernel.org\fP and other
+systems using the same upload system (\fBkorgupload\fP).  Each upload
+is required to have a PGP signature, and the server will generate
+multiple compressed formats if the content uploaded is intended to be
+compressed.
+.PP
+Additionally, if the user has content from a
+.BR git (1)
+tree already on server, it is possible to reproduce the content
+server-side and therefore reducing bandwidth needs.  The user still
+has to generate the content locally and sign it.
+.SH GLOBAL OPTIONS
+.TP
+\fB\-b\fP, \fB\-\-batch\fP
+Instead of connecting to a remote host, output the protocol content to
+standard output.  The output from an arbitrary number of
+.B kup
+invocation can be concatenated and then sent to the server as a single
+session.
+.TP
+\fB\-e\fP, \fB\-\-rsh, \fB\-\-ssh\fP \fIcommand\fP
+Override the default command used to connect to the server.  The
+default is set by the environment variable
+.B KUP_RSH 
+or if that is not set,
+\fIssh \-a \-x \-k \-T\fP.
+.TP
+\fB\-H\-fP, \-fB\-\-host\fP \fI[user@]host\fP
+Override the default user and host to which to connect.  The default
+is set by the environment variable
+.B KUP_HOST
+or if that is not set,
+\fIupload.kernel.org\fP.
+.SH COMMANDS
+A series of commands can be specified on a single command line,
+separated by a double dash argument (\fB\-\-\fP).
+.PP
+In all cases, PGP signatures are detached signature files
+corresponding to the \fIuncompressed\fP content.  If a
+\fIremote_path\fP ends in \fP\.gz\fP then
+.BR gzip ,
+.B bzip2
+and
+.B xz
+compressed files are generated on the server; otherwise the content is
+stored uncompressed.
+.TP
+\fBput\fP \fIlocal_file\fP \fPsignature_file\fP \fIremote_path\fP
+Upload the file \fIlocal_file\fP with signed with
+\fIsignature_file\fP.  \fIlocal_file\fP can be compressed with
+.BR gzip ,
+.B bzip2
+or
+.BR xz ;
+this may reduce upload time.  The content will be stored compressed or
+uncompressed depending solely on the extension of \fIremote_path\fP.
+.TP
+\fBput\fP \fB\-\-tar\fP \fIremote_tree\fP \fIref\fP \fPsignature_file\fP \fIremote_path\fP
+Generate a tar archive file from ref \fIref\fP of git tree
+\fIremote_tree\fP (using \fBgit archive \-\-format=tar\fP) with
+signature \fIsignature_file\fP generated locally, and place it in
+\fIremote_path\fP.
+.sp
+\fBgit archive\fP has been found to be relatively stable, and so this
+command is relatively robust to git version changes.
+.TP
+\fBput\fP \fB\-\-diff\fP \fIremote_tree\fP \fIref1\fP \fIref2\fP \fPsignature_file\fP \fIremote_path\fP
+Generate a patch file between refs \fIref1\fP and \fIref2\fP of git
+tree \fIremote_tree\fP (using \fBgit diff-tree \-p\fP) with signature
+\fIsignature_file\fP generated locally, and place it in
+\fIremote_path\fP.
+.sp
+The output of \fBgit diff-tree\fP has been found to vary between
+.B git
+versions, and so successful use of this command may require the same
+version of
+.B git
+locally as on the server in order to produce a valid signature.
+.TP
+\fBmkdir\fP \fIremote_path\fP
+Create a new directory on the server.
+.TP
+\fBmv|move\fP \fIold_path\fP \fInew_path\fP
+Move the file or directory \fIold_path\fP to \fInew_path\fP.  For a
+file, the \fI.sign\fP files are also moved, and for compressed files,
+all the compression formats are moved together.
+.TP
+\fBln|link\fP \fIold_path\fP \fInew_path\fP
+Hard link the file or directory \fIold_path\fP to \fInew_path\fP.  For a
+file, the \fI.sign\fP files are also linked, and for compressed files,
+all the compression formats are linked together.
+.TP
+\fBrm|del|delete\fP \fIold_path\fP
+Delete the file or directory \fIold_path\fP.  For a file, the
+\fI.sign\fP files are also deleted, and for compressed files, all the
+compression formats are deleted together.
+.SH AUTHOR
+Written by H. Peter Anvin <hpa@zytor.com>.
+.SH COPYRIGHT
+Copyright \(co 2011 Intel Corporation
+.br
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.SH "SEE ALSO"
+.BR git (1),
+.BR ssh (1),
+.BR gzip (1),
+.BR bzip2 (1),
+.BR xz (1).
