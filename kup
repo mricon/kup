@@ -12,7 +12,8 @@ my $blksiz = 1024*1024;
 
 # Global options
 my %opt = (
-    'rsh'   => 'ssh -a -x -k -T upload.kernel.org',
+    'rsh'   => 'ssh -a -x -k -T',
+    'host'  => 'upload.kernel.org',
     'batch' => 0,
     );
 
@@ -30,6 +31,9 @@ $ENV{'PATH'} = untaint($ENV{'PATH'});
 if (defined $ENV{'KUP_RSH'}) {
     $opt{'rsh'} = $ENV{'KUP_RSH'};
 }
+if (defined $ENV{'KUP_HOST'}) {
+    $opt{'host'} = $ENV{'KUP_HOST'};
+}
 delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};   # Make %ENV safer
 
 # We process the command set twice, once as a dry run and one for real,
@@ -44,8 +48,9 @@ sub usage($) {
     print STDERR "Usage: $0 [global options] command [-- command...]\n";
     print STDERR "\n";
     print STDERR "Global options:\n";
-    print STDERR "   -b  --batch       Output command stream to stdout\n";
-    print STDERR "   -e  --rsh=command Send output to command, override KUP_RSH\n";
+    print STDERR "   -b  --batch             Output command stream to stdout\n";
+    print STDERR "   -e  --rsh=command       Send output to command, override KUP_RSH\n";
+    print STDERR "   -o  --host=[user@]host  Connect to [user@]host, override KUP_HOST\n";
     print STDERR "\n";
     print STDERR "Commands:\n";
     print STDERR "   put local_file signature remote_path\n";
@@ -122,12 +127,16 @@ sub parse_global_options()
 
 	if ($arg eq '-b' || $arg eq '--batch') {
 	    $opt{'batch'} = 1;
-	} elsif ($arg eq '-e' || $arg eq '--rsh') {
+	} elsif ($arg eq '-e' || $arg eq '--rsh' || $arg eq '--ssh') {
 	    $opt{'rsh'} = shift(@ARGV);
+	} elsif ($arg =~ /^--rsh=(.+)$/) {
+	    $opt{'rsh'} = $1;
+	} elsif ($arg eq '-o' || $arg eq '--host') {
+	    $opt{'host'} = shift(@ARGV);
+	} elsif ($arg =~ /^--host=(.+)$/) {
+	    $opt{'host'} = $1;
 	} elsif ($arg eq '-h' || $arg eq '--help') {
 	    usage(0);
-	} elsif ($arg =~ /^(-e|--rsh=)(.+)$/) {
-	    $opt{'rsh'} = $2;
 	} else {
 	    die "$0: unknown option: $arg\n";
 	}
@@ -167,6 +176,10 @@ sub setup_output()
 	    die "$0: suspicious KUP_RSH command (if this is bogus let hpa know)\n";
 	}
 	my $rsh = $1;
+	if ($opt{'host'} != /^([-a-zA-Z0-9._@]+)$/) {
+	    die "$0: suspicious KUP_HOST (if this is bogus let hpa know)\n";
+	}
+	$rsh .= " \Q$1";
 	open(STDOUT, '|-', $rsh)
 	    or die "$0: cannot execute rsh command ", $rsh, "\n";
     }
