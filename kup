@@ -1,6 +1,6 @@
 #!/usr/bin/perl -T
 ## -----------------------------------------------------------------------
-##   
+##
 ##   Copyright 2011 Intel Corporation; author: H. Peter Anvin
 ##
 ##   This program is free software; you can redistribute it and/or
@@ -101,6 +101,8 @@ sub is_valid_filename($)
 
     my($f) = @_;
 
+    return 0 if (!defined($f));	# If undefined, clearly not valid
+
     return 0 if (length($f) > 1024); # Reject ridiculously long paths
     return 0 if (!is_clean_string($f)); # Reject bad UTF-8 and control characters
     return 0 if ($f !~ m:^/:);	# Reject relative paths
@@ -129,6 +131,59 @@ sub is_valid_filename($)
     return 0 if ($nmax > 100);
 
     return 1;
+}
+
+# Clean up a filename so that it is more likely to pass the
+# canonicalization test.  An optional second argument is used with
+# two-filename commands (move, link); it should be the already
+# canonicalized first argument.
+#
+# This can return undef for some invalid pathnames.  This needs to be
+# caught by is_valid_filename().
+sub canonicalize_path($;$)
+{
+    my($file, $root) = @_;
+
+    $root = '/' unless defined($root);
+
+    my $tail = '';
+    if ($root =~ m:^(.*/)([^/]+)$:) {
+	$root = $1;
+	$tail = $2;
+    }
+
+    if ($root !~ m:^/: || $root !~ m:/$:) {
+	die "$0: internal error: non-canonical root\n";
+    }
+
+    if ($file !~ m:^/:) {
+	$file = $root . $file;
+    }
+    if ($file =~ m:/$:) {
+	$file .= $tail;
+    }
+
+    my @path = ();
+    my $wasspc = 1;
+    # The -1 argument to split means "preserve trailing empty fields"
+    foreach my $s (split(/\//, $file, -1)) {
+	if ($s eq '' || $s eq '.') {
+	    $wasspc = 1;
+	} elsif ($s eq '..') {
+	    # If this ran off the root, error
+	    return undef if (!defined(pop(@path)));
+	    $wasspc = 1;
+	} else {
+	    push(@path, $s);
+	    $wasspc = 0;
+	}
+    }
+
+    # If this ended in a special component, error
+    return undef if ($wasspc);
+
+    # The initial '' forces the result to begin with a slash
+    return join('/', '', @path);
 }
 
 # Parse global options
@@ -214,9 +269,9 @@ sub get_data_format($)
     my $magic2 = substr($data, 0, 2);
     my $magic4 = substr($data, 0, 4);
     my $magic6 = substr($data, 0, 6);
-    
+
     my $fmt = '%';		# Meaning straight binary
-    
+
     if ($magic2 eq "\037\213") {
 	$fmt = 'gz';
     } elsif ($magic4 =~ /^BZh[1-9]$/) {
@@ -227,9 +282,9 @@ sub get_data_format($)
 	# than the magics on the file format, and even so
 	# they managed to pick a magic for the compression
 	# packet which has no non-ASCII bytes in it...
-	
+
 	my $submagic = substr($data, 4, 6);
-	
+
 	if ($submagic eq "\x31\x41\x59\x26\x53\x59" ||
 	    $submagic eq "\x17\x72\x45\x38\x50\x90") {
 	    $fmt = 'bz2';
@@ -313,6 +368,8 @@ sub cmd_put()
 	if (!defined($ref)) {
 	    usage(1);
 	}
+
+	$remote_tree = canonicalize_path($remote_tree);
 	if (!is_valid_filename($remote_tree) || $remote_tree !~ /\.git$/) {
 	    die "$0: invalid path name for git tree: $remote_tree\n";
 	}
@@ -336,6 +393,7 @@ sub cmd_put()
 	if (!defined($ref2)) {
 	    usage(1);
 	}
+	$remote_tree = canonicalize_path($remote_tree);
 	if (!is_valid_filename($remote_tree) || $remote_tree !~ /\.git$/) {
 	    die "$0: invalid path name for git tree: $remote_tree\n";
 	}
@@ -368,6 +426,7 @@ sub cmd_put()
 	usage(1);
     }
 
+    $remote = canonicalize_path($remote);
     if (!is_valid_filename($remote)) {
 	die "$0: invalid pathname: $remote\n";
     }
@@ -375,7 +434,7 @@ sub cmd_put()
     if ($remote =~ /\.sign$/) {
 	die "$0: target filename cannot end in .sign\n";
     }
-    
+
     # DWIM: .bz2, .xz -> .gz
     $remote =~ s/\.(bz2|xz)$/.gz/;
 
@@ -395,6 +454,7 @@ sub cmd_mkdir()
 	usage(1);
     }
 
+    $remote = canonicalize_path($remote);
     if (!is_valid_filename($remote)) {
 	die "$0: invalid pathname: $remote\n";
     }
@@ -417,6 +477,7 @@ sub cmd_delete()
 	usage(1);
     }
 
+    $remote = canonicalize_path($remote);
     if (!is_valid_filename($remote)) {
 	die "$0: invalid pathname: $remote\n";
     }
@@ -445,17 +506,12 @@ sub cmd_move_link($)
 	usage(1);
     }
 
+    $from = canonicalize_path($from);
     if (!is_valid_filename($from)) {
 	die "$0: invalid pathname: $from\n";
     }
 
-    if ($to =~ m:/$:) {
-	# Syntactic sugar: allow specifying a directory only by ending in /
-	if ($from =~ m:^(.*/|)([^/]+)$:) {
-	    $to .= $2;
-	}
-    }
-
+    $to = canonicalize_path($to, $from);
     if (!is_valid_filename($to)) {
 	die "$0: invalid pathname: $to\n";
     }
