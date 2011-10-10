@@ -1,6 +1,6 @@
 #!/usr/bin/perl -T
 ## -----------------------------------------------------------------------
-##   
+##
 ##   Copyright 2011 Intel Corporation; author: H. Peter Anvin
 ##
 ##   This program is free software; you can redistribute it and/or
@@ -98,7 +98,7 @@ sub fatal($) {
     no bytes;
 
     my($msg) = @_;
-    
+
     $msg =~ s/[\x{0000}-\x{001f}\x{007f}-\x{00a0}\x{fffd}-\x{ffff}]/ /g;
 
     syslog(LOG_CRIT, "%s", $msg);
@@ -218,7 +218,7 @@ sub is_clean_string($)
 
     return 0 if ($f =~ m:[\x{0000}-\x{001f}\x{007f}-\x{00a0}\x{fffd}-\x{ffff}]:);
     return 1;
-}    
+}
 
 # Decode the argument line
 sub parse_line($)
@@ -262,7 +262,7 @@ sub is_valid_filename($)
     return 0 if ($f !~ m:^/:);	# Reject relative paths
     return 0 if ($f =~ m:/$:);	# Reject paths ending in /
     return 0 if ($f =~ m://:);	# Reject double slashes
-    
+
     # Reject filename components starting with dot or dash, covers . and ..
     return 0 if ($f =~ m:/[\.\-]:);
 
@@ -315,7 +315,7 @@ sub get_blob($$@)
     open($outfd, '>', $output)
 	or fatal("Failed to open $cmd file");
     binmode($outfd);
-    
+
     if (defined($zcmd)) {
 	open($oldstdout, '>&', \*STDOUT) or die;
 	open(STDOUT, '>&', $outfd) or die;
@@ -334,7 +334,7 @@ sub get_blob($$@)
 	my $blk = $left < $bufsiz ? $left : $bufsiz;
 	my $data;
 	my $rl;
-	
+
 	alarm($timeout_data);
 	$blk = read(STDIN, $data, $blk);
 	alarm(0);
@@ -389,7 +389,7 @@ sub check_ref($$)
     $out = <$pipe_in>;
     chomp $out;
     waitpid($pid, 0);
-    
+
     if ($? == 0 && $out =~ /^([0-9a-f]{40}) (\S+) ([0-9]+)$/) {
 	return ($1, $2, $3+0);
     } else {
@@ -436,7 +436,7 @@ sub get_tar_data(@)
 	$repo->command_noisy('archive', '--format=tar', '--prefix='.$prefix,
 			     '-o', $tmpdir.'/data', $ref);
     } "Failed to acquire tarball\n";
-		  
+
     $have_data = 1;
 }
 
@@ -468,7 +468,7 @@ sub get_diff_data(@)
     if ($type1 !~ /^(tree|commit|tag)$/) {
 	fatal("Invalid tree reference");
     }
-    
+
     my ($sha2, $type2, $len2) = check_ref($repo, $ref2);
     if ($type2 !~ /^(tree|commit|tag)$/) {
 	fatal("Invalid tree reference");
@@ -484,13 +484,13 @@ sub get_diff_data(@)
 	sysopen($out, $tmpdir.'/data', O_WRONLY|O_CREAT|O_TRUNC) or die;
 	open(STDOUT, '>&', $out) or die;
 	close($out);
-	
+
 	$repo->command_noisy('diff-tree', '-p', $sha1, $sha2);
 
 	open(STDOUT, '>&', $oldstdout);
 	close($oldstdout);
     } "Failed to acquire patch file\n";
-		  
+
     $have_data = 1;
 }
 
@@ -570,7 +570,7 @@ sub make_timestamps_match()
     die if (!$have_data || !$have_sign);
 
     my $now = time();
-    
+
     foreach my $e ('', keys(%zformats), '.sign') {
 	utime($now, $now, $tmpdir.'/data'.$e);
     }
@@ -692,7 +692,7 @@ sub put_file(@)
 	    fatal("Trying to overwrite a non-file");
 	}
     }
-    
+
     my @undoes = ();
     foreach my $e ('.sign', keys(%zformats)) {
 	my $target = $data_path.$stem.$e;
@@ -832,10 +832,10 @@ sub move_or_link_file($@)
 	} else {
 	    $from_stem = $from;
 	    $to_stem   = $to;
-	    
+
 	    @conflic_ext = keys(%zformats);
 	    @install_ext = ('.sign', '');
-	    
+
 	    $type = 'plain';
 	}
     } else {
