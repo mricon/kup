@@ -61,11 +61,12 @@ use POSIX;
 use Sys::Syslog qw(:standard :macros);
 use Git;
 
-my $data_path = '/home/hpa/kernel.org/test/pub';
-my $git_path  = '/home/hpa/kernel.org/test/git';
-my $lock_file = '/home/hpa/kernel.org/test/lock';
-my $tmp_path  = '/home/hpa/kernel.org/test/tmp';
-my $pgp_path  = '/home/hpa/kernel.org/test/pgp';
+# All paths starting with /home/kuptest are dummy paths for testing
+my $data_path = '/home/kuptest/kernel.org/test/pub';
+my $git_path  = '/home/kuptest/kernel.org/test/git';
+my $lock_file = '/home/kuptest/kernel.org/test/lock';
+my $tmp_path  = '/home/kuptest/kernel.org/test/tmp';
+my $pgp_path  = '/home/kuptest/kernel.org/test/pgp';
 my $max_data  = 8*1024*1024*1024;
 my $bufsiz    = 256*1024;
 
