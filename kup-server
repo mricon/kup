@@ -112,7 +112,7 @@ sub my_username() {
 
     if (!defined($name) || $whoami != $uid) {
 	# We haven't called openlog() yet so we need to do it here
-	openlog("korgupload($whoami)", 'ndelay,pid', LOG_LOCAL5);
+	openlog("kup-server($whoami)", 'ndelay,pid', LOG_LOCAL5);
 	fatal("You don't exist, go away!");
     }
 
@@ -121,7 +121,7 @@ sub my_username() {
 
 my $user_name = my_username();
 
-openlog("korgupload($user_name)", 'ndelay,pid', LOG_LOCAL5);
+openlog("kup-server($user_name)", 'ndelay,pid', LOG_LOCAL5);
 
 # Create a temporary directory with plenty of randomness
 sub make_temp_dir() {
