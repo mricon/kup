@@ -1,0 +1,26 @@
+#!/bin/sh
+#
+# Sign an arbitrary number of files using a transient GPG agent
+#
+
+unset GPG_AGENT_INFO
+eval $(gpg-agent --daemon --quiet --no-use-standard-socket --keep-tty --keep-display --sh)
+for f; do
+    fbare=$(echo "$f" | sed -e 's/\.[^./]*$//')
+    case "$f" in
+	*.gz)
+	    gzip -cd "$f" | gpg --use-agent -a -b -o "$fbare".sign --set-filename "$fbare" -
+	    ;;
+	*.bz2)
+	    bzip2 -cd "$f" | gpg --use-agent -a -b -o "$fbare".sign --set-filename "$fbare" -
+	    ;;
+	*.xz)
+	    xz -cd "$f" | gpg --use-agent -a -b -o "$fbare".sign --set-filename "$fbare" -
+	    ;;
+	*)
+	    gpg --use-agent -a -b -o "$f".sign "$f"
+	    ;;
+    esac
+done
+# Kill the agent
+kill $(gpg-connect-agent /subst /serverpid '/echo ${get serverpid}' /bye)
