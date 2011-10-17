@@ -24,9 +24,10 @@ my $blksiz = 1024*1024;
 
 # Global options
 my %opt = (
-    'rsh'   => 'ssh -a -x -k -T',
-    'host'  => 'upload.kernel.org',
-    'batch' => 0,
+    'rsh'     => 'ssh -a -x -k -T',
+    'host'    => 'upload.kernel.org',
+    'batch'   => 0,
+    'verbose' => 0,
     );
 
 # This is a client, and so running with tainting on is a bit overly
@@ -63,6 +64,7 @@ sub usage($) {
     print STDERR "   -b  --batch             Output command stream to stdout\n";
     print STDERR "   -e  --rsh=command       Send output to command, override KUP_RSH\n";
     print STDERR "   -o  --host=[user@]host  Connect to [user@]host, override KUP_HOST\n";
+    print STDERR "   -v  --verbose           Print each command to stderr as it is sent\n";
     print STDERR "\n";
     print STDERR "Commands:\n";
     print STDERR "   put local_file signature remote_path\n";
@@ -202,6 +204,8 @@ sub parse_global_options()
 	    $opt{'host'} = shift(@ARGV);
 	} elsif ($arg =~ /^--host=(.+)$/) {
 	    $opt{'host'} = $1;
+	} elsif ($arg eq '-v' || $arg eq '--verbose') {
+	    $opt{'verbose'}++;
 	} elsif ($arg eq '-h' || $arg eq '--help') {
 	    usage(0);
 	} else {
@@ -262,6 +266,15 @@ sub close_output()
     }
 }
 
+# Print a command to STDOUT, and if requested, to STDERR
+sub command(@)
+{
+    if ($real) {
+	print STDERR @_ if ($opt{'verbose'});
+	print @_;
+    }
+}
+
 sub get_data_format($)
 {
     my($data) = @_;
@@ -317,7 +330,7 @@ sub cat_file($$$)
 	}
 
 	if (defined($fmt)) {
-	    print "${cmd} ${size} ${fmt}\n";
+	    command("${cmd} ${size} ${fmt}\n");
 	}
 
 	my $blk;
@@ -333,7 +346,7 @@ sub cat_file($$$)
 
 	    if (!defined($fmt)) {
 		$fmt = get_data_format($blk);
-		print "${cmd} ${size} ${fmt}\n";
+		command("${cmd} ${size} ${fmt}\n");
 	    }
 
 	    print $blk;
@@ -377,10 +390,8 @@ sub cmd_put()
 	    die "$0: invalid ref: $ref\n";
 	}
 
-	if ($real) {
-	    print 'TAR ', url_encode($remote_tree), ' ',
-		url_encode($ref), ' ', url_encode($prefix), "\n";
-	}
+	command('TAR ', url_encode($remote_tree), ' ',
+		url_encode($ref), ' ', url_encode($prefix), "\n");
     } elsif ($file eq '-d' || $file eq '--diff') {
 	# diff hack
 
@@ -404,10 +415,8 @@ sub cmd_put()
 	    die "$0: invalid ref: $ref2\n";
 	}
 
-	if ($real) {
-	    print 'DIFF ', url_encode($remote_tree), ' ',
-		url_encode($ref1), ' ', url_encode($ref2), "\n";
-	}
+	command('DIFF ', url_encode($remote_tree), ' ',
+		url_encode($ref1), ' ', url_encode($ref2), "\n");
     } elsif ($file =~ /^-/) {
 	die "$0: unknown option to put command: $file\n";
     } else {
@@ -439,10 +448,7 @@ sub cmd_put()
     $remote =~ s/\.(bz2|xz)$/.gz/;
 
     cat_file('SIGN', $sign, undef);
-
-    if ($real) {
-	print 'PUT ', url_encode($remote), "\n";
-    }
+    command('PUT ', url_encode($remote), "\n");
 }
 
 # MKDIR command
@@ -463,9 +469,7 @@ sub cmd_mkdir()
 	die "$0: a directory name cannot end in .sign, .gz, .bz2, .xz\n";
     }
 
-    if ($real) {
-	print 'MKDIR ', url_encode($remote), "\n";
-    }
+    command('MKDIR ', url_encode($remote), "\n");
 }
 
 # DELETE command
@@ -489,9 +493,7 @@ sub cmd_delete()
     # DWIM: .bz2, .xz -> .gz
     $remote =~ s/\.(bz2|xz)$/.gz/;
 
-    if ($real) {
-	print 'DELETE ', url_encode($remote), "\n";
-    }
+    command('DELETE ', url_encode($remote), "\n");
 }
 
 # MOVE or LINK command
@@ -530,9 +532,7 @@ sub cmd_move_link($)
 	die "$0: moving filename to self: $from\n";
     }
 
-    if ($real) {
-	print $cmd, ' ', url_encode($from), ' ', url_encode($to), "\n";
-    }
+    command($cmd, ' ', url_encode($from), ' ', url_encode($to), "\n");
 }
 
 # Process commands
