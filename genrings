@@ -54,9 +54,48 @@ while (defined($line = <$in>)) {
     my $username = $1;
     my $keyid = $2;
 
-    my $n = ++$keys{$username};
+    my @keyids = ();
+    open(my $gpgfd, '-|',
+	 $gpg, '--fixed-list-mode', '--with-colons', '--list-keys',
+	 '--with-fingerprint', '--with-fingerprint', $keyid)
+	or die "$0: failed to run gpg\n";
+    my $gl;
+    my $fprok = 0;
+    while (defined($gl = <$gpgfd>)) {
+	my @gf = split(/\:/, $gl);
 
-    system($gpg, '-o', "${tmpdir}/${username}.${n}.key", '--export', $keyid);
+	if ($fprok && $gf[0] eq 'fpr') {
+	    # This is the actual fingerprint we wanted
+	    push(@keyids, $gf[9]);
+	    $fprok = 0;
+	} else {
+	    $fprok = 0;
+
+	    # Key must be a public key
+	    next if ($gf[0] ne 'pub');
+
+	    # Skip keys that are:
+	    # i - invalid
+	    # d - disabled
+	    # r - revoked
+	    # e - expired
+	    # o - unknown
+	    # D (in field 12) - disabled
+	    next if ($gf[1] =~ /[idreo]/ || $gf[11] =~ /D/);
+
+	    # XXX: What should be enforced for field 12?
+
+	    $fprok = 1;
+	}
+    }
+    close($gpgfd);
+
+    if (scalar(@keyids)) {
+	my $n = ++$keys{$username};
+	system($gpg, '-o', "${tmpdir}/${username}.${n}.key",
+	       '--export-options', 'export-local-sigs,export-minimal',
+	       '--export', @keyids);
+    }
 }
 
 close($in);
