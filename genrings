@@ -49,7 +49,7 @@ my %keys = ();
 
 my $line;
 while (defined($line = <$in>)) {
-    next if ($line !~ /^([A-Za-z0-9_.-]+)\s+(\S+)/);
+    next if ($line !~ /^([A-Za-z0-9_.-]+)\s+([0-9a-fA-F]+)/);
 
     my $username = $1;
     my $keyid = $2;
