@@ -971,6 +971,7 @@ sub delete_path(@)
 sub mode_string($)
 {
     my($mode) = @_;
+    my $s;
 
     if (S_ISREG($mode)) {
 	$s = '-';
@@ -1051,7 +1052,8 @@ sub do_dir(@)
     }
     $dir .= '/';
 
-    if (!opendir(my $dh, $data_path.$dir)) {
+    my $dh;
+    if (!opendir($dh, $data_path.$dir)) {
 	fatal("Invalid directory in DIR command");
     }
 
