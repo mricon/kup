@@ -9,30 +9,30 @@ for specific tree access control.
 
 
 The following pathnames in kup-server need to be customized
-appropriately.  The predefined paths are dummy paths for testing only.
+appropriately.
 
 All of these paths should be disjoint!
 
 
-my $data_path = '/home/kuptest/kernel.org/test/pub';
+my $data_path = '/var/lib/kup/pub';
 
 This is the path under which files are uploaded.
 
 
-my $git_path  = '/home/kuptest/kernel.org/test/git';
+my $git_path  = '/var/lib/git';
 
 This is the path where git trees (for the TAR and DIFF options) are
 available.  Those should be readonly for the uploaders.
 
 
-my $lock_file = '/home/kuptest/kernel.org/test/lock';
+my $lock_file = '/var/run/kup/lock';
 
 A common lock file for $data_path.  No program should modify the
 content in $data_path without holding an flock on this file.  Should
 be readonly for the uploaders.
 
 
-my $tmp_path  = '/home/kuptest/kernel.org/test/tmp/';
+my $tmp_path  = '/var/lib/kup/tmp/';
 
 This can be either:
 
@@ -48,7 +48,7 @@ $data_path, since the script expects to create files in this directory
 and rename() them into $data_path.
 
 
-my $pgp_path  = '/home/kuptest/kernel.org/test/pgp';
+my $pgp_path  = '/var/lib/kup/pgp';
 
 A directory containing a GnuPG public keyring for each user, named
 <user>.gpg and readable (but not writable) by that user.

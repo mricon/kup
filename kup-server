@@ -62,12 +62,12 @@ use Sys::Syslog qw(:standard :macros);
 use Git;
 
 # All paths starting with /home/kuptest are dummy paths for testing
-my $data_path = '/home/kuptest/kernel.org/test/pub';
-my $git_path  = '/home/kuptest/kernel.org/test/git';
-my $lock_file = '/home/kuptest/kernel.org/test/lock';
+my $data_path = '/var/lib/kup/pub';
+my $git_path  = '/var/lib/git';
+my $lock_file = '/var/run/kup/lock';
 # If $tmp_path ends in /, a full set of per-user temp directories are expected
-my $tmp_path  = '/home/kuptest/kernel.org/test/tmp/';
-my $pgp_path  = '/home/kuptest/kernel.org/test/pgp';
+my $tmp_path  = '/var/lib/kup/tmp/';
+my $pgp_path  = '/var/lib/kup/pgp';
 my $max_data  = 8*1024*1024*1024;
 my $bufsiz    = 256*1024;
 
