@@ -74,7 +74,7 @@ sub usage($) {
     print STDERR "   mv|move old_path new_path\n";
     print STDERR "   ln|link old_path new_path\n";
     print STDERR "   rm|del|delete old_path\n";
-    print STDERR "   ls|dir path...\n"
+    print STDERR "   ls|dir path...\n";
 
     exit $err;
 }
