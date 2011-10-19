@@ -1060,8 +1060,7 @@ sub do_dir(@)
     # Synchronization marker to make output machine-readable
     print '+ ', url_encode($dir), "\n";
 
-    my $de;
-    while (defined($de = readdir($dh))) {
+    foreach my $de (sort readdir($dh)) {
 	next if ($de =~ /^\./);	# Hidden files include . and ..
 
 	my @st = lstat($data_path.$dir.'/'.$de);
