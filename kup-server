@@ -65,7 +65,8 @@ use Git;
 my $data_path = '/home/kuptest/kernel.org/test/pub';
 my $git_path  = '/home/kuptest/kernel.org/test/git';
 my $lock_file = '/home/kuptest/kernel.org/test/lock';
-my $tmp_path  = '/home/kuptest/kernel.org/test/tmp';
+# If $tmp_path ends in /, a full set of per-user temp directories are expected
+my $tmp_path  = '/home/kuptest/kernel.org/test/tmp/';
 my $pgp_path  = '/home/kuptest/kernel.org/test/pgp';
 my $max_data  = 8*1024*1024*1024;
 my $bufsiz    = 256*1024;
@@ -125,9 +126,15 @@ openlog("kup-server($user_name)", 'ndelay,pid', LOG_LOCAL5);
 
 # Create a temporary directory with plenty of randomness
 sub make_temp_dir() {
-    my $root = $tmp_path.'/'.$user_name;
+    my $root;
     my $urand;
     my $randbytes;
+
+    # If tmp_path ends in /, we are using per-user tmp directories
+    $root = $tmp_path;
+    if ($root =~ m:/$:) {
+	$root .= $user_name;
+    }
 
     sysopen($urand, '/dev/urandom', O_RDONLY)
 	or fatal("/dev/urandom not accessible");
@@ -148,9 +155,7 @@ sub make_temp_dir() {
     $template = $1.'-XXXXXXXXXXXX';
 
     umask(077);
-    my $dir = tempdir($template,
-		      DIR => $tmp_path.'/'.$user_name,
-		      CLEANUP => 1);
+    my $dir = tempdir($template, DIR => $root, CLEANUP => 1);
 }
 
 my $tmpdir = make_temp_dir();

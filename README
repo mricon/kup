@@ -13,14 +13,17 @@ appropriately.  The predefined paths are dummy paths for testing only.
 
 All of these paths should be disjoint!
 
+
 my $data_path = '/home/kuptest/kernel.org/test/pub';
 
 This is the path under which files are uploaded.
+
 
 my $git_path  = '/home/kuptest/kernel.org/test/git';
 
 This is the path where git trees (for the TAR and DIFF options) are
 available.  Those should be readonly for the uploaders.
+
 
 my $lock_file = '/home/kuptest/kernel.org/test/lock';
 
@@ -28,12 +31,22 @@ A common lock file for $data_path.  No program should modify the
 content in $data_path without holding an flock on this file.  Should
 be readonly for the uploaders.
 
-my $tmp_path  = '/home/kuptest/kernel.org/test/tmp';
 
-A directory containing an empty directory for each user (named for
-that user), owned by that user and mode 700.  This needs to be on the
-same filesystem as $data_path, since the script expects to create
-files in this directory and rename() them into $data_path.
+my $tmp_path  = '/home/kuptest/kernel.org/test/tmp/';
+
+This can be either:
+
+a) a directory writable by every user and with the sticky bit set
+   (typically mode 1777 or 1770).  In that case, DO NOT end the path
+   with a slash, or:
+b) A directory containing an empty directory for each user (named for
+   that user), owned by that user and mode 700.  In this case, DO end
+   the path with a slash.
+
+In either case, this directory tree MUST same filesystem as
+$data_path, since the script expects to create files in this directory
+and rename() them into $data_path.
+
 
 my $pgp_path  = '/home/kuptest/kernel.org/test/pgp';
 
