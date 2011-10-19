@@ -363,6 +363,7 @@ sub cat_file($$$)
 sub cmd_put()
 {
     my $file = shift @args;
+    my $file_tail = undef;
 
     if ($file eq '-t' || $file eq '--tar') {
 	# tar hack
@@ -428,6 +429,10 @@ sub cmd_put()
 	# server decompress it.
 
 	cat_file('DATA', $file, undef);
+
+	# Get the local filename without directory
+	$file =~ m:^(|.*/)([^/]+)$:;
+	$file_tail = $2;
     }
 
     my $sign   = shift @args;
@@ -437,6 +442,13 @@ sub cmd_put()
 	usage(1);
     }
 
+    # This allows the user to not specify the filename if it is
+    # the same as on the local filesystem by ending the pathname
+    # with a slash
+    if ($remote =~ m:/$: && defined($file_tail)) {
+	$remote .= $file_tail;
+    }
+    
     $remote = canonicalize_path($remote);
     if (!is_valid_filename($remote)) {
 	die "$0: invalid pathname: $remote\n";
