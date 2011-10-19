@@ -115,6 +115,18 @@ compression formats are deleted together.
 .TP
 \fBls|dir\fP \fIpath...\fP
 Lists back the contents of one or more directories on the server.
+.SH PATHNAME HANDLING
+Remote (server) pathnames all need to be absolute paths, starting with
+a slash (/).  The sole exception is \fInew_path\fP for the \fBmv\fP
+and \fBlink\fP commands, which if it is not absolute is taken to be
+relative to the \fIold_path\fP minus the final component.  Similarly,
+if \fInew_path\fP ends in a slash then the final component of
+\fIold_path\fP will be appended.
+.PP
+For the \fPput\fP command, except when \fB\-\-tar\fP or \fB\-\-diff\fP
+is specified, if the \fIremote_path\fP ends in a slash then the
+final (filename) component of \fIlocal_file\fP will be appended to the
+final pathname.
 .SH AUTHOR
 Written by H. Peter Anvin <hpa@zytor.com>.
 .SH COPYRIGHT
