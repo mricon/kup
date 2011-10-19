@@ -19,6 +19,7 @@ use strict;
 use warnings;
 use bytes;
 use Encode qw(encode decode);
+use File::Spec;
 
 my $blksiz = 1024*1024;
 
@@ -431,8 +432,8 @@ sub cmd_put()
 	cat_file('DATA', $file, undef);
 
 	# Get the local filename without directory
-	$file =~ m:^(|.*/)([^/]+)$:;
-	$file_tail = $2;
+	my($vol, $dir);
+	($vol, $dir, $file_tail) = File::Spec->splitpath($file);
     }
 
     my $sign   = shift @args;
