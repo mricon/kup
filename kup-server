@@ -55,7 +55,7 @@ use IPC::Open2 qw(open2);
 
 use File::Temp qw(tempdir);
 use BSD::Resource;
-use Fcntl qw(:DEFAULT :flock);
+use Fcntl qw(:DEFAULT :flock :mode);
 use POSIX;
 
 use Sys::Syslog qw(:standard :macros);
@@ -148,9 +148,16 @@ sub make_temp_dir() {
     $template = $1.'-XXXXXXXXXXXX';
 
     umask(077);
-    my $dir = tempdir($template,
-		      DIR => $tmp_path.'/'.$user_name,
-		      CLEANUP => 1);
+
+    # Create the per-user temp directory if it doesn't exist already
+    mkdir($root, 0700);
+    my @rs = lstat($root);
+    if (!S_ISDIR($rs[2]) || $rs[4] != getuid() || ($rs[2] & 07777) != 0700) {
+	die "$0: something is squatting on my temp directory!\n";
+    }
+
+    # Create the session directory
+    my $dir = tempdir($template, DIR => $root, CLEANUP => 1);
 }
 
 my $tmpdir = make_temp_dir();
