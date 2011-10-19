@@ -1060,7 +1060,7 @@ sub do_dir(@)
     }
 
     # Synchronization marker to make output machine-readable
-    print '+ ', url_encode($dir), "\n";
+    print '+++ ', url_encode($dir), "\n";
 
     foreach my $de (sort readdir($dh)) {
 	next if ($de =~ /^\./);	# Hidden files include . and ..
@@ -1079,8 +1079,8 @@ sub do_dir(@)
     closedir($dh);
 
     # Termination marker to make output machine-readable
-    $| = 1;			# We want to flush stdout after this line
-    print '= ', url_encode($dir), "\n";
+    $| = 1;		# At least try to flush stdout after this line
+    print "\n";
     $| = 0;
 }
 
