@@ -1015,6 +1015,7 @@ sub get_usr($)
     }
 
     my $usr = getpwuid($uid) || sprintf("%u", $uid);
+    $usr = url_encode($usr);	# If we have really strange names...
 
     $uid_hash{$uid} = $usr;
     return $usr;
@@ -1030,6 +1031,7 @@ sub get_grp($)
     }
 
     my $grp = getgrgid($gid) || sprintf("%u", $gid);
+    $grp = url_encode($grp);	# If we have really strange names...
 
     $gid_hash{$gid} = $grp;
     return $grp;
