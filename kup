@@ -541,7 +541,8 @@ sub cmd_move_link($)
 # DIR command (supports arbitrary number of arguments)
 sub cmd_dir()
 {
-    foreach my $d (@args) {
+    while (defined($args[0]) && $args[0] ne '--') {
+	my $d = shift @args;
 	$d =~ s:/$::g;
 	if ($d ne '') {
 	    $d = canonicalize_path($d);
