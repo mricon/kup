@@ -57,7 +57,7 @@ use IPC::Open2 qw(open2);
 
 use File::Temp qw(tempdir);
 use BSD::Resource;
-use Fcntl qw(:DEFAULT :flock :stat);
+use Fcntl qw(:DEFAULT :flock :mode);
 use POSIX;
 
 use Sys::Syslog qw(:standard :macros);
