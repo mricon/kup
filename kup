@@ -270,8 +270,10 @@ sub close_output()
 sub command(@)
 {
     if ($real) {
-	print STDERR @_ if ($opt{'verbose'});
-	print @_;
+	my $cmd = join(' ', @_);
+
+	print STDERR $cmd, "\n" if ($opt{'verbose'});
+	print $cmd, "\n";
     }
 }
 
@@ -330,7 +332,7 @@ sub cat_file($$$)
 	}
 
 	if (defined($fmt)) {
-	    command("${cmd} ${size} ${fmt}\n");
+	    command($cmd, $size, $fmt);
 	}
 
 	my $blk;
@@ -346,7 +348,7 @@ sub cat_file($$$)
 
 	    if (!defined($fmt)) {
 		$fmt = get_data_format($blk);
-		command("${cmd} ${size} ${fmt}\n");
+		command($cmd, $size, $fmt);
 	    }
 
 	    print $blk;
@@ -390,8 +392,8 @@ sub cmd_put()
 	    die "$0: invalid ref: $ref\n";
 	}
 
-	command('TAR ', url_encode($remote_tree), ' ',
-		url_encode($ref), ' ', url_encode($prefix), "\n");
+	command('TAR', url_encode($remote_tree),
+		url_encode($ref), url_encode($prefix));
     } elsif ($file eq '-d' || $file eq '--diff') {
 	# diff hack
 
@@ -415,8 +417,8 @@ sub cmd_put()
 	    die "$0: invalid ref: $ref2\n";
 	}
 
-	command('DIFF ', url_encode($remote_tree), ' ',
-		url_encode($ref1), ' ', url_encode($ref2), "\n");
+	command('DIFF', url_encode($remote_tree), url_encode($ref1),
+		url_encode($ref2));
     } elsif ($file =~ /^-/) {
 	die "$0: unknown option to put command: $file\n";
     } else {
@@ -448,7 +450,7 @@ sub cmd_put()
     $remote =~ s/\.(bz2|xz)$/.gz/;
 
     cat_file('SIGN', $sign, undef);
-    command('PUT ', url_encode($remote), "\n");
+    command('PUT', url_encode($remote));
 }
 
 # MKDIR command
@@ -469,7 +471,7 @@ sub cmd_mkdir()
 	die "$0: a directory name cannot end in .sign, .gz, .bz2, .xz\n";
     }
 
-    command('MKDIR ', url_encode($remote), "\n");
+    command('MKDIR', url_encode($remote));
 }
 
 # DELETE command
@@ -493,7 +495,7 @@ sub cmd_delete()
     # DWIM: .bz2, .xz -> .gz
     $remote =~ s/\.(bz2|xz)$/.gz/;
 
-    command('DELETE ', url_encode($remote), "\n");
+    command('DELETE', url_encode($remote));
 }
 
 # MOVE or LINK command
@@ -532,7 +534,7 @@ sub cmd_move_link($)
 	die "$0: moving filename to self: $from\n";
     }
 
-    command($cmd, ' ', url_encode($from), ' ', url_encode($to), "\n");
+    command($cmd, url_encode($from), url_encode($to));
 }
 
 # Process commands
