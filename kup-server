@@ -1070,7 +1070,7 @@ sub do_dir(@)
 
 	printf "%-10s %3u %-8s %-8s %10u %s %s\n",
 		mode_string($st[2]), $st[3],
-		get_usr($st[4]), get_gid($st[5]), $st[7],
+		get_usr($st[4]), get_grp($st[5]), $st[7],
 		POSIX::strftime("%Y-%m-%d %H:%M:%S", gmtime($st[9])),
 		url_encode($de);
     }
