@@ -74,6 +74,7 @@ sub usage($) {
     print STDERR "   mv|move old_path new_path\n";
     print STDERR "   ln|link old_path new_path\n";
     print STDERR "   rm|del|delete old_path\n";
+    print STDERR "   ls|dir path...\n"
 
     exit $err;
 }
@@ -537,6 +538,23 @@ sub cmd_move_link($)
     command($cmd, url_encode($from), url_encode($to));
 }
 
+# DIR command (supports arbitrary number of arguments)
+sub cmd_dir()
+{
+    foreach my $d (@args) {
+	$d =~ s:/$::g;
+	if ($d ne '') {
+	    $d = canonicalize_path($d);
+	    if (!is_valid_filename($d)) {
+		die "$0: invalid pathname: $d\n";
+	    }
+	}
+	$d .= '/';
+
+	command('DIR', $d);
+    }
+}
+
 # Process commands
 sub process_commands()
 {
@@ -559,6 +577,8 @@ sub process_commands()
 	    cmd_move_link('LINK');
 	} elsif ($cmd eq 'delete' || $cmd eq 'del' || $cmd eq 'rm') {
 	    cmd_delete();
+	} elsif ($cmd eq 'ls' || $cmd eq 'dir') {
+	    cmd_dir();
 	} else {
 	    die "$0: unknown command: $cmd\n";
 	}

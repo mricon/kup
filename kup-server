@@ -38,6 +38,8 @@
 #	- hard links <old-path> to <new-path>
 # DELETE old-path
 #	- removes <old-path>
+# DIR path
+#	- lists the contents of <path> on stdout; must be a directory
 # DONE
 #	- optional command, terminates transaction
 #
@@ -55,7 +57,7 @@ use IPC::Open2 qw(open2);
 
 use File::Temp qw(tempdir);
 use BSD::Resource;
-use Fcntl qw(:DEFAULT :flock);
+use Fcntl qw(:DEFAULT :flock :stat);
 use POSIX;
 
 use Sys::Syslog qw(:standard :macros);
@@ -184,6 +186,31 @@ sub unlock_tree()
 	close($lock_fd);
 	undef $lock_fd;
     }
+}
+
+# Encode a string; this is used by the DIR command
+# It would probably be more user-friendly if valid, printable,
+# multibyte UTF-8 was allowed in the output...
+sub url_encode($)
+{
+    my($s) = @_;
+
+    # Hack to encode an empty string
+    return '%' if ($s eq '');
+
+    my $o = '';
+
+    foreach my $c (unpack("C*", $s)) {
+	if ($c > 32 && $c < 126 && $c != 37 && $c != 43) {
+	    $o .= chr($c);
+	} elsif ($c == 32) {
+	    $o .= '+';
+	} else {
+	    $o .= sprintf("%%%02X", $c);
+	}
+    }
+
+    return $o;
 }
 
 sub url_unescape($)
@@ -941,6 +968,119 @@ sub delete_path(@)
     unlock_tree();
 }
 
+sub mode_string($)
+{
+    my($mode) = @_;
+
+    if (S_ISREG($mode)) {
+	$s = '-';
+    } elsif (S_ISDIR($mode)) {
+	$s = 'd';
+    } elsif (S_ISLNK($mode)) {
+	$s = 'l';
+    } else {
+	# We should not have BLK, CHR, FIFO or SOCK in this hierarchy
+	return '??????????';
+    }
+
+    $s .= ($mode & S_IRUSR) ? 'r' : '-';
+    $s .= ($mode & S_IWUSR) ? 'w' : '-';
+    $s .= ($mode & S_ISUID) ?
+	(($mode & S_IXUSR) ? 's' : 'S') :
+	(($mode & S_IXUSR) ? 'x' : '-');
+
+    $s .= ($mode & S_IRGRP) ? 'r' : '-';
+    $s .= ($mode & S_IWGRP) ? 'w' : '-';
+    $s .= ($mode & S_ISGID) ?
+	(($mode & S_IXGRP) ? 's' : 'S') :
+	(($mode & S_IXGRP) ? 'x' : '-');
+
+    $s .= ($mode & S_IROTH) ? 'r' : '-';
+    $s .= ($mode & S_IWOTH) ? 'w' : '-';
+    $s .= ($mode & S_ISVTX) ?
+	(($mode & S_IXOTH) ? 's' : 'S') :
+	(($mode & S_IXOTH) ? 'x' : '-');
+
+    return $s;
+}
+
+my %uid_hash = ();
+sub get_usr($)
+{
+    my($uid) = @_;
+
+    if (defined($uid_hash{$uid})) {
+	return $uid_hash{$uid};
+    }
+
+    my $usr = getpwuid($uid) || sprintf("%u", $uid);
+
+    $uid_hash{$uid} = $usr;
+    return $usr;
+}
+
+my %gid_hash = ();
+sub get_grp($)
+{
+    my($gid) = @_;
+
+    if (defined($gid_hash{$gid})) {
+	return $gid_hash{$gid};
+    }
+
+    my $grp = getgrgid($gid) || sprintf("%u", $gid);
+
+    $gid_hash{$gid} = $grp;
+    return $grp;
+}
+
+sub do_dir(@)
+{
+    my(@args) = @_;
+
+    if (scalar(@args) != 1) {
+	fatal("Bad DELETE command");
+    }
+
+    my($dir) = @args;
+
+    # DIR / is permitted unlike any other command
+    $dir =~ s:/$::g;
+    if ($dir ne '' && !is_valid_filename($dir)) {
+	fatal("Invalid pathname in DIR command");
+    }
+    $dir .= '/';
+
+    if (!opendir(my $dh, $data_path.$dir)) {
+	fatal("Invalid directory in DIR command");
+    }
+
+    # Synchronization marker to make output machine-readable
+    print '+ ', url_encode($dir), "\n";
+
+    my $de;
+    while (defined($de = readdir($dh))) {
+	next if ($de =~ /^\./);	# Hidden files include . and ..
+
+	my @st = lstat($data_path.$dir.'/'.$de);
+
+	next unless(scalar(@st) == 13);
+
+	printf "%-10s %3u %-8s %-8s %10u %s %s\n",
+		mode_string($st[2]), $st[3],
+		get_usr($st[4]), get_gid($st[5]), $st[7],
+		POSIX::strftime("%Y-%m-%d %H:%M:%S", gmtime($st[9])),
+		url_encode($de);
+    }
+
+    closedir($dh);
+
+    # Termination marker to make output machine-readable
+    $| = 1;			# We want to flush stdout after this line
+    print '= ', url_encode($dir), "\n";
+    $| = 0;
+}
+
 sub get_command()
 {
     local $SIG{'ALRM'} = sub { fatal("Timeout waiting for command"); };
@@ -988,6 +1128,8 @@ while (defined($line = get_command())) {
 	move_or_link_file($cmd, @args);
     } elsif ($cmd eq 'DELETE') {
 	delete_path(@args);
+    } elsif ($cmd eq 'DIR') {
+	do_dir(@args);
     } elsif ($cmd eq 'DONE') {
 	last;
     } else {
