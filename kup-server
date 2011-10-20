@@ -720,14 +720,14 @@ sub put_file(@)
     }
 
     my $ok = 1;
-    foreach my $e ('.sign', keys(%zformats)) {
+    foreach my $e (@install_ext) {
 	if (-e $data_path.$stem.$e && ! -f _) {
 	    fatal("Trying to overwrite a non-file");
 	}
     }
 
     my @undoes = ();
-    foreach my $e ('.sign', keys(%zformats)) {
+    foreach my $e (@install_ext) {
 	my $target = $data_path.$stem.$e;
 	if (!rename($tmpdir.'/data'.$e, $target)) {
 	    unlink(@undoes);
