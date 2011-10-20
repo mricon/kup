@@ -387,9 +387,10 @@ sub cmd_put()
 	    usage(1);
 	}
 
+	my $xrt = $remote_tree;
 	$remote_tree = canonicalize_path($remote_tree);
 	if (!is_valid_filename($remote_tree) || $remote_tree !~ /\.git$/) {
-	    die "$0: invalid path name for git tree: $remote_tree\n";
+	    die "$0: invalid path name for git tree: $xrt\n";
 	}
 	if (!is_clean_string($ref)) {
 	    die "$0: invalid ref: $ref\n";
@@ -409,9 +410,11 @@ sub cmd_put()
 	if (!defined($ref2)) {
 	    usage(1);
 	}
+
+	my $xrt = $remote_tree;
 	$remote_tree = canonicalize_path($remote_tree);
 	if (!is_valid_filename($remote_tree) || $remote_tree !~ /\.git$/) {
-	    die "$0: invalid path name for git tree: $remote_tree\n";
+	    die "$0: invalid path name for git tree: $xrt\n";
 	}
 	if (!is_clean_string($ref1)) {
 	    die "$0: invalid ref: $ref1\n";
@@ -451,9 +454,10 @@ sub cmd_put()
 	$remote .= $file_tail;
     }
     
+    my $xrt = $remote;
     $remote = canonicalize_path($remote);
     if (!is_valid_filename($remote)) {
-	die "$0: invalid pathname: $remote\n";
+	die "$0: invalid pathname: $xrt\n";
     }
 
     if ($remote =~ /\.sign$/) {
@@ -476,9 +480,10 @@ sub cmd_mkdir()
 	usage(1);
     }
 
+    my $xrt = $remote;
     $remote = canonicalize_path($remote);
     if (!is_valid_filename($remote)) {
-	die "$0: invalid pathname: $remote\n";
+	die "$0: invalid pathname: $xrt\n";
     }
 
     if ($remote =~ /\.(sign|gz|bz2|xz)$/) {
@@ -497,9 +502,10 @@ sub cmd_delete()
 	usage(1);
     }
 
+    my $xrt = $remote;
     $remote = canonicalize_path($remote);
     if (!is_valid_filename($remote)) {
-	die "$0: invalid pathname: $remote\n";
+	die "$0: invalid pathname: $xrt\n";
     }
 
     if ($remote =~ /\.sign$/) {
@@ -524,14 +530,16 @@ sub cmd_move_link($)
 	usage(1);
     }
 
+    my $xrt = $from;
     $from = canonicalize_path($from);
     if (!is_valid_filename($from)) {
-	die "$0: invalid pathname: $from\n";
+	die "$0: invalid pathname: $xrt\n";
     }
 
+    $xrt = $to;
     $to = canonicalize_path($to, $from);
     if (!is_valid_filename($to)) {
-	die "$0: invalid pathname: $to\n";
+	die "$0: invalid pathname: $xrt\n";
     }
 
     if ($from =~ /\.sign$/ || $to =~ /\.sign$/) {
@@ -558,9 +566,10 @@ sub cmd_dir()
 	my $d = shift @args;
 	$d =~ s:/$::g;
 	if ($d ne '') {
+	    my $xrt = $d;
 	    $d = canonicalize_path($d);
 	    if (!is_valid_filename($d)) {
-		die "$0: invalid pathname: $d\n";
+		die "$0: invalid pathname: $xrt\n";
 	    }
 	}
 	$d .= '/';
