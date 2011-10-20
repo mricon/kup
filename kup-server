@@ -386,6 +386,7 @@ sub get_blob($$@)
     close($outfd)
 	or fatal("Write error during $cmd");
 
+    syslog(LOG_DEBUG, "%u bytes read, %u bytes written", $len, -s $output);
     return $len;
 }
 
@@ -555,17 +556,21 @@ sub make_compressed_data()
 	}
 
 	if ($w == 0) {
-	    sysopen(STDIN, $tmpdir.'/data', O_RDONLY)
-		or exit 127;
-	    sysopen(STDOUT, $tmpdir.'/data'.$e,
-		    O_WRONLY|O_CREAT|O_TRUNC, 0666)
-		or exit 127;
+	    open(STDIN, '<', $tmpdir.'/data') or exit 127;
+	    open(STDOUT, '>', $tmpdir.'/data'.$e) or exit 127;
+
+	    # This is necessary to work around a bug in Perl 5.10.1;
+	    # if we don't do this then Perl 5.10.1 seeks to the point
+	    # in STDIN which matches the number of bytes that has been
+	    # read from STDIN since the beginning of the script, ignoring
+	    # the fact that STDIN was just redirected above.
+	    seek(STDIN, 0, 0);
 
 	    exec {$c[0]} @c;
 	    exit 127;
 	}
 
-	$workers{$w}++;
+	$workers{$w} = $e;
 	$nworkers++;
     }
 
@@ -582,7 +587,8 @@ sub make_compressed_data()
 	my $w = wait();
 	my $status = $?;
 
-	if ($workers{$w}) {
+	if (defined($workers{$w})) {
+	    my $e = $workers{$w};
 	    undef $workers{$w};
 	    if ($status) {
 		foreach my $c (keys %workers) {
@@ -590,9 +596,11 @@ sub make_compressed_data()
 		}
 		fatal("Failed to compress output data");
 	    }
-	}
+	    syslog(LOG_DEBUG, "%s compression: %u -> %u bytes",
+		   $e, -s $tmpdir.'/data', -s $tmpdir.'/data'.$e);
 
-	$nworkers--;
+	    $nworkers--;
+	}
     }
 
     alarm(0);
@@ -701,7 +709,7 @@ sub put_file(@)
 	@conflic_ext = ('');
 	@install_ext = ('.sign', keys(%zformats));
     } elsif (has_extension($file, '.sign', keys(%zformats))) {
-	fatal("Cannot install auxiliary files directly");
+	fatal("$file: Cannot install auxiliary files directly");
     } else {
 	$stem = $file;
 
@@ -715,14 +723,14 @@ sub put_file(@)
 
     foreach my $e (@conflic_ext) {
 	if (-e $data_path.$stem.$e) {
-	    fatal("Filename conflict (compressed and uncompressed)");
+	    fatal("$file: Filename conflict (compressed and uncompressed)");
 	}
     }
 
     my $ok = 1;
     foreach my $e (@install_ext) {
 	if (-e $data_path.$stem.$e && ! -f _) {
-	    fatal("Trying to overwrite a non-file");
+	    fatal("$file: Trying to overwrite a non-file");
 	}
     }
 
@@ -730,8 +738,10 @@ sub put_file(@)
     foreach my $e (@install_ext) {
 	my $target = $data_path.$stem.$e;
 	if (!rename($tmpdir.'/data'.$e, $target)) {
+	    my $err = $!;
 	    unlink(@undoes);
-	    fatal("Failed to install files");
+	    $! = $err;
+	    fatal("$file: Failed to install files: $!");
 	}
 	push(@undoes, $target);
     }
