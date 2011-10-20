@@ -362,6 +362,11 @@ sub get_blob($$@)
 	close($oldstdout);
     }
 
+    # We don't show a progress bar if the transfer is very short or
+    # quick, like with typical signatures.
+    my $prog_time = time() + 2;
+    my $prog_perc = -1;
+
     my $left = $len;
     while ($left) {
 	my $blk = $left < $bufsiz ? $left : $bufsiz;
@@ -381,10 +386,22 @@ sub get_blob($$@)
 	}
 
 	$left -= $blk;
+
+	my $now  = time();
+	my $perc = int((($len-$left)*100)/$len);
+	if ($left == 0 ?
+	    ($prog_perc >= 0) :		# Show 100% iff we already showed a progress bar
+	    ($now > $prog_time && $perc != $proc_perc)) {
+	    printf STDERR "%10u [%-50s] %3u%%\r", $len, '=' x ($perc >> 1), $perc;
+	    $prog_perc = $perc;
+	    $proc_time = $now;
+	}
     }
 
     close($outfd)
 	or fatal("Write error during $cmd");
+
+    print STDERR "\n" if ($prog_perc >= 0);
 
     syslog(LOG_DEBUG, "%u bytes read, %u bytes written", $len, -s $output);
     return $len;
