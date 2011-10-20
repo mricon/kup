@@ -21,7 +21,8 @@ for f; do
 	    	--set-filename "$(basename "$fbare")" -
 	    ;;
 	*)
-	    gpg --use-agent -a -b -o "$f".sign "$(basename "$f")"
+	    gpg --use-agent -a -b -o "$f".sign \
+		--set-filename "$(basename "$f")" "$f"
 	    ;;
     esac
 done
