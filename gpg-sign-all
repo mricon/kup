@@ -9,16 +9,19 @@ for f; do
     fbare=$(echo "$f" | sed -e 's/\.[^./]*$//')
     case "$f" in
 	*.gz)
-	    gzip -cd "$f" | gpg --use-agent -a -b -o "$fbare".sign --set-filename "$fbare" -
+	    gzip -cd "$f" | gpg --use-agent -a -b -o "$fbare".sign \
+		--set-filename "$(basename "$fbare")" -
 	    ;;
 	*.bz2)
-	    bzip2 -cd "$f" | gpg --use-agent -a -b -o "$fbare".sign --set-filename "$fbare" -
+	    bzip2 -cd "$f" | gpg --use-agent -a -b -o "$fbare".sign \
+		--set-filename "$(basename "$fbare")" -
 	    ;;
 	*.xz)
-	    xz -cd "$f" | gpg --use-agent -a -b -o "$fbare".sign --set-filename "$fbare" -
+	    xz -cd "$f" | gpg --use-agent -a -b -o "$fbare".sign \
+	    	--set-filename "$(basename "$fbare")" -
 	    ;;
 	*)
-	    gpg --use-agent -a -b -o "$f".sign "$f"
+	    gpg --use-agent -a -b -o "$f".sign "$(basename "$f")"
 	    ;;
     esac
 done
