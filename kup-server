@@ -391,10 +391,10 @@ sub get_blob($$@)
 	my $perc = int((($len-$left)*100)/$len);
 	if ($left == 0 ?
 	    ($prog_perc >= 0) :		# Show 100% iff we already showed a progress bar
-	    ($now > $prog_time && $perc != $proc_perc)) {
+	    ($now > $prog_time && $perc != $prog_perc)) {
 	    printf STDERR "%10u [%-50s] %3u%%\r", $len, '=' x ($perc >> 1), $perc;
 	    $prog_perc = $perc;
-	    $proc_time = $now;
+	    $prog_time = $now;
 	}
     }
 
