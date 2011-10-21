@@ -59,6 +59,7 @@ use File::Temp qw(tempdir);
 use BSD::Resource;
 use Fcntl qw(:DEFAULT :flock :mode);
 use POSIX;
+use IO::Handle;
 
 use Sys::Syslog qw(:standard :macros);
 use Git;
@@ -386,6 +387,9 @@ sub get_blob($$@)
 	}
 
 	$left -= $blk;
+
+	# STDERR needs to be flushed
+	STDERR->autoflush(1);
 
 	my $now  = time();
 	my $perc = int((($len-$left)*100)/$len);
@@ -1106,9 +1110,9 @@ sub do_dir(@)
     closedir($dh);
 
     # Termination marker to make output machine-readable
-    $| = 1;		# At least try to flush stdout after this line
+    STDOUT->autoflush(1);	# At least try to flush stdout after this line
     print "\n";
-    $| = 0;
+    STDOUT->autoflush(0);
 }
 
 sub get_command()
