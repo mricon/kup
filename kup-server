@@ -477,7 +477,7 @@ sub get_tar_data(@)
     } "Invalid git repository\n";
 
     my ($sha, $type, $len) = check_ref($repo, $ref);
-    if ($type !~ /^(tree|commit|tag)$/) {
+    if (!defined($type) || $type !~ /^(tree|commit|tag)$/) {
 	fatal("Invalid tree reference");
     }
 
@@ -516,12 +516,12 @@ sub get_diff_data(@)
     } "Invalid git repository\n";
 
     my ($sha1, $type1, $len1) = check_ref($repo, $ref1);
-    if ($type1 !~ /^(tree|commit|tag)$/) {
+    if (!defined($type1) || $type1 !~ /^(tree|commit|tag)$/) {
 	fatal("Invalid tree reference");
     }
 
     my ($sha2, $type2, $len2) = check_ref($repo, $ref2);
-    if ($type2 !~ /^(tree|commit|tag)$/) {
+    if (!defined($type2) || $type2 !~ /^(tree|commit|tag)$/) {
 	fatal("Invalid tree reference");
     }
 
