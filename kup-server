@@ -54,6 +54,7 @@ use warnings;
 use bytes;
 use Encode qw(encode decode);
 use IPC::Open2 qw(open2);
+use Config::Simple;
 
 use File::Temp qw(tempdir);
 use BSD::Resource;
@@ -64,39 +65,10 @@ use IO::Handle;
 use Sys::Syslog qw(:standard :macros);
 use Git;
 
-# All paths starting with /home/kuptest are dummy paths for testing
-my $data_path = '/var/lib/kup/pub';
-my $git_path  = '/var/lib/git';
-my $lock_file = '/var/run/kup/lock';
-# If $tmp_path ends in /, a full set of per-user temp directories are expected
-my $tmp_path  = '/var/lib/kup/tmp/';
-my $pgp_path  = '/var/lib/kup/pgp';
-my $max_data  = 8*1024*1024*1024;
-my $bufsiz    = 256*1024;
-
-# Configurable timeouts
-my $timeout_command	= 30;
-my $timeout_data	= 300;	# Read min $bufsiz in this timespan
-my $timeout_compress	= 900;	# This can take a while, esp. xz
-
 # Scrub the environment completely
 %ENV = ('PATH' => '/bin:/usr/bin',
 	'LANG' => 'C',
 	'SHELL' => '/bin/false'); # Nothing in this program should shell out
-
-# Make sure the user can't create insanely large files
-setrlimit(RLIMIT_FSIZE, $max_data, $max_data);
-
-# These programs are expected to accept the option
-# -9 for compression and -cd for decompression to stdout.
-my %zformats = (
-    '.gz'  => '/bin/gzip',
-    '.bz2' => '/usr/bin/bzip2',
-    '.xz'  => '/usr/bin/xz'
-);
-
-my $have_data = 0;
-my $have_sign = 0;
 
 # The standard function to call on bail
 sub fatal($) {
@@ -126,6 +98,43 @@ sub my_username() {
 my $user_name = my_username();
 
 openlog("kup-server($user_name)", 'ndelay,pid', LOG_LOCAL5);
+
+
+# Get config values from kup-server.cfg
+my $cfg_file = '/etc/kup/kup-server.cfg';
+
+my $cfg = new Config::Simple($cfg_file);
+
+if (!defined($cfg)) {
+    fatal('Error reading config file: '.$cfg_file);
+}
+
+my $data_path = $cfg->param('paths.data_path');
+my $git_path  = $cfg->param('paths.git_path');
+my $lock_file = $cfg->param('paths.lock_file');
+my $tmp_path  = $cfg->param('paths.tmp_path');
+my $pgp_path  = $cfg->param('paths.pgp_path');
+
+my $max_data  = int($cfg->param('limits.max_data'));
+my $bufsiz    = int($cfg->param('limits.bufsiz'));
+
+my $timeout_command	= int($cfg->param('limits.timeout_command'));
+my $timeout_data	= int($cfg->param('limits.timeout_data'));
+my $timeout_compress	= int($cfg->param('limits.timeout_compress'));
+
+# Make sure the user can't create insanely large files
+setrlimit(RLIMIT_FSIZE, $max_data, $max_data);
+
+# These programs are expected to accept the option
+# -9 for compression and -cd for decompression to stdout.
+my %zformats = (
+    '.gz'  => '/bin/gzip',
+    '.bz2' => '/usr/bin/bzip2',
+    '.xz'  => '/usr/bin/xz'
+);
+
+my $have_data = 0;
+my $have_sign = 0;
 
 # Create a temporary directory with plenty of randomness
 sub make_temp_dir() {

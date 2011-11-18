@@ -127,6 +127,25 @@ For the \fPput\fP command, except when \fB\-\-tar\fP or \fB\-\-diff\fP
 is specified, if the \fIremote_path\fP ends in a slash then the
 final (filename) component of \fIlocal_file\fP will be appended to the
 final pathname.
+.SH CONFIG FILE
+Kup checks the presence of $HOME/.kuprc and can load the
+.B host
+and
+.B rsh
+parameters from the config file. Environment variables
+.B KUP_HOST
+and
+.B KUP_RSH
+will override the values set in this config file.
+.PP
+SAMPLE $HOME/.kuprc:
+.PP
+.RS
+.nf
+host = user@kup.kernel.org
+rsh  = /usr/bin/ssh -a -x -k -T
+.fi
+.RE
 .SH AUTHOR
 Written by H. Peter Anvin <hpa@zytor.com>.
 .SH COPYRIGHT

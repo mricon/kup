@@ -20,6 +20,7 @@ use warnings;
 use bytes;
 use Encode qw(encode decode);
 use File::Spec;
+use Config::Simple;
 
 my $blksiz = 1024*1024;
 
@@ -30,6 +31,23 @@ my %opt = (
     'batch'   => 0,
     'verbose' => 0,
     );
+
+# Read the config file settings and override the above
+my $cfg_file = $ENV{'HOME'}.'/.kuprc';
+my $cfg = new Config::Simple($cfg_file);
+
+if (defined($cfg)) {
+    # Update %opt with cfgfile settings (only rsh and host vars)
+    my %cfg_opt = $cfg->vars();
+
+    if (defined($cfg_opt{'default.host'})) {
+	$opt{'host'} = $cfg_opt{'default.host'};
+    }
+
+    if (defined($cfg_opt{'default.rsh'})) {
+	$opt{'rsh'} = $cfg_opt{'default.rsh'};
+    }
+}
 
 # This is a client, and so running with tainting on is a bit overly
 # paranoid.  As a result we have to explicitly untaint certain bits from
