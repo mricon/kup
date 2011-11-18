@@ -26,7 +26,7 @@ my $blksiz = 1024*1024;
 # Global options
 my %opt = (
     'rsh'     => 'ssh -a -x -k -T',
-    'host'    => 'upload.kernel.org',
+    'host'    => 'kup.kernel.org',
     'batch'   => 0,
     'verbose' => 0,
     );
