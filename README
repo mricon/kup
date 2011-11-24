@@ -1,55 +1,11 @@
-The program "kup-server" is expected to be the receiver of an ssh
-shell, configured with the following options in authorized_keys or
-similar:
+ABOUT
+-----
+Kup is a file upload utility for kernel.org. It is designed to only accept
+cryptographically verified uploads from pre-authorized, trusted members.
 
-command="/path/to/kup-server",no-agent-forwarding,no-port-forwarding,no-pty,no-user-rc,no-X11-forwarding <pubkey>
+See man kup and man kup-server for more information.
 
-Each user should have their own UID, as Unix user permissions are used
-for specific tree access control.
-
-
-The following pathnames in kup-server need to be customized
-appropriately.
-
-All of these paths should be disjoint!
-
-
-my $data_path = '/var/lib/kup/pub';
-
-This is the path under which files are uploaded.
-
-
-my $git_path  = '/var/lib/git';
-
-This is the path where git trees (for the TAR and DIFF options) are
-available.  Those should be readonly for the uploaders.
-
-
-my $lock_file = '/var/run/kup/lock';
-
-A common lock file for $data_path.  No program should modify the
-content in $data_path without holding an flock on this file.  Should
-be readonly for the uploaders.
-
-
-my $tmp_path  = '/var/lib/kup/tmp/';
-
-This can be either:
-
-a) a directory writable by every user and with the sticky bit set
-   (typically mode 1777 or 1770).  In that case, DO NOT end the path
-   with a slash, or:
-b) A directory containing an empty directory for each user (named for
-   that user), owned by that user and mode 700.  In this case, DO end
-   the path with a slash.
-
-In either case, this directory tree MUST same filesystem as
-$data_path, since the script expects to create files in this directory
-and rename() them into $data_path.
-
-
-my $pgp_path  = '/var/lib/kup/pgp';
-
-A directory containing a GnuPG public keyring for each user, named
-<user>.gpg and readable (but not writable) by that user.
-
+AUTHORS
+-------
+Kup was written by H. Peter Anvin <hpa@zytor.com>
+Kup is currently maintained by Konstantin Ryabitsev <mricon@kernel.org>

@@ -26,45 +26,45 @@ my $blksiz = 1024*1024;
 
 # Global options
 my %opt = (
-    'rsh'     => 'ssh -a -x -k -T',
-    'host'    => 'kup.kernel.org',
-    'batch'   => 0,
-    'verbose' => 0,
-    );
+	'rsh'	 => 'ssh -a -x -k -T',
+	'host'	=> 'kup.kernel.org',
+	'batch'   => 0,
+	'verbose' => 0,
+	);
 
 # Read the config file settings and override the above
 my $cfg_file = $ENV{'HOME'}.'/.kuprc';
 my $cfg = new Config::Simple($cfg_file);
 
 if (defined($cfg)) {
-    # Update %opt with cfgfile settings (only rsh and host vars)
-    my %cfg_opt = $cfg->vars();
+	# Update %opt with cfgfile settings (only rsh and host vars)
+	my %cfg_opt = $cfg->vars();
 
-    if (defined($cfg_opt{'default.host'})) {
-	$opt{'host'} = $cfg_opt{'default.host'};
-    }
+	if (defined($cfg_opt{'default.host'})) {
+		$opt{'host'} = $cfg_opt{'default.host'};
+	}
 
-    if (defined($cfg_opt{'default.rsh'})) {
-	$opt{'rsh'} = $cfg_opt{'default.rsh'};
-    }
+	if (defined($cfg_opt{'default.rsh'})) {
+		$opt{'rsh'} = $cfg_opt{'default.rsh'};
+	}
 }
 
 # This is a client, and so running with tainting on is a bit overly
 # paranoid.  As a result we have to explicitly untaint certain bits from
 # the environment.
 sub untaint($) {
-    my($s) = @_;
+	my($s) = @_;
 
-    $s =~ /^(.*)$/;
-    return $1;
+	$s =~ /^(.*)$/;
+	return $1;
 }
 
 $ENV{'PATH'} = untaint($ENV{'PATH'});
 if (defined $ENV{'KUP_RSH'}) {
-    $opt{'rsh'} = $ENV{'KUP_RSH'};
+	$opt{'rsh'} = $ENV{'KUP_RSH'};
 }
 if (defined $ENV{'KUP_HOST'}) {
-    $opt{'host'} = $ENV{'KUP_HOST'};
+	$opt{'host'} = $ENV{'KUP_HOST'};
 }
 delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};   # Make %ENV safer
 
@@ -75,41 +75,41 @@ my $real;
 
 # Usage description
 sub usage($) {
-    my($err) = @_;
+	my($err) = @_;
 
-    print STDERR "Usage: $0 [global options] command [-- command...]\n";
-    print STDERR "\n";
-    print STDERR "Global options:\n";
-    print STDERR "   -b  --batch             Output command stream to stdout\n";
-    print STDERR "   -e  --rsh=command       Send output to command, override KUP_RSH\n";
-    print STDERR "   -o  --host=[user@]host  Connect to [user@]host, override KUP_HOST\n";
-    print STDERR "   -v  --verbose           Print each command to stderr as it is sent\n";
-    print STDERR "\n";
-    print STDERR "Commands:\n";
-    print STDERR "   put local_file signature remote_path\n";
-    print STDERR "   put --tar [--prefix=] remote_tree ref signature remote_path\n";
-    print STDERR "   put --diff remote_tree ref1 ref2 signature remote_path\n";
-    print STDERR "   mkdir remote_path\n";
-    print STDERR "   mv|move old_path new_path\n";
-    print STDERR "   ln|link old_path new_path\n";
-    print STDERR "   rm|del|delete old_path\n";
-    print STDERR "   ls|dir path...\n";
+	print STDERR "Usage: $0 [global options] command [-- command...]\n";
+	print STDERR "\n";
+	print STDERR "Global options:\n";
+	print STDERR "   -b  --batch			 Output command stream to stdout\n";
+	print STDERR "   -e  --rsh=command	   Send output to command, override KUP_RSH\n";
+	print STDERR "   -o  --host=[user@]host  Connect to [user@]host, override KUP_HOST\n";
+	print STDERR "   -v  --verbose		   Print each command to stderr as it is sent\n";
+	print STDERR "\n";
+	print STDERR "Commands:\n";
+	print STDERR "   put local_file signature remote_path\n";
+	print STDERR "   put --tar [--prefix=] remote_tree ref signature remote_path\n";
+	print STDERR "   put --diff remote_tree ref1 ref2 signature remote_path\n";
+	print STDERR "   mkdir remote_path\n";
+	print STDERR "   mv|move old_path new_path\n";
+	print STDERR "   ln|link old_path new_path\n";
+	print STDERR "   rm|del|delete old_path\n";
+	print STDERR "   ls|dir path...\n";
 
-    exit $err;
+	exit $err;
 }
 
 # Return true if the supplied string is valid UTF-8 without special
 # characters
 sub is_clean_string($)
 {
-    no bytes;
-    # use feature 'unicode_strings';	-- is this needed here?
+	no bytes;
+	# use feature 'unicode_strings';		-- is this needed here?
 
-    my($b) = @_;
-    my $f = decode('UTF-8', $b, Encode::FB_DEFAULT);
+	my($b) = @_;
+	my $f = decode('UTF-8', $b, Encode::FB_DEFAULT);
 
-    return 0 if ($f =~ m:[\x{0000}-\x{001f}\x{007f}-\x{00a0}\x{fffd}-\x{ffff}]:);
-    return 1;
+	return 0 if ($f =~ m:[\x{0000}-\x{001f}\x{007f}-\x{00a0}\x{fffd}-\x{ffff}]:);
+	return 1;
 }
 
 # This returns true if the given argument is a valid filename in its
@@ -119,40 +119,40 @@ sub is_clean_string($)
 # without worrying about it, and the entire pathname to 1024 bytes.
 sub is_valid_filename($)
 {
-    use bytes;
+	use bytes;
 
-    my($f) = @_;
+	my($f) = @_;
 
-    return 0 if (!defined($f));	# If undefined, clearly not valid
+	return 0 if (!defined($f));		# If undefined, clearly not valid
 
-    return 0 if (length($f) > 1024); # Reject ridiculously long paths
-    return 0 if (!is_clean_string($f)); # Reject bad UTF-8 and control characters
-    return 0 if ($f !~ m:^/:);	# Reject relative paths
-    return 0 if ($f =~ m:/$:);	# Reject paths ending in /
-    return 0 if ($f =~ m://:);	# Reject double slashes
+	return 0 if (length($f) > 1024); # Reject ridiculously long paths
+	return 0 if (!is_clean_string($f)); # Reject bad UTF-8 and control characters
+	return 0 if ($f !~ m:^/:);		# Reject relative paths
+	return 0 if ($f =~ m:/$:);		# Reject paths ending in /
+	return 0 if ($f =~ m://:);		# Reject double slashes
 
-    # Reject filename components starting with dot or dash, covers . and ..
-    return 0 if ($f =~ m:/[\.\-]:);
+	# Reject filename components starting with dot or dash, covers . and ..
+	return 0 if ($f =~ m:/[\.\-]:);
 
-    # Reject undesirable filename characters anywhere in the name.
-    # This isn't inherently security-critical, and could be tuned if
-    # users need it...
-    return 0 if ($f =~ m:[\!\"\$\&\'\*\;\<\>\?\\\`\|]:);
+	# Reject undesirable filename characters anywhere in the name.
+	# This isn't inherently security-critical, and could be tuned if
+	# users need it...
+	return 0 if ($f =~ m:[\!\"\$\&\'\*\;\<\>\?\\\`\|]:);
 
-    # Make sure we can create a filename after adding .bz2 or similar.
-    # We can't use the obvious regexp here, because regexps operate on
-    # characters, not bytes.  The limit of 100 is semi-arbitrary, but
-    # we shouldn't need filenames that long.
-    my $n = 0;
-    my $nmax = 0;
-    for (my $i = 0; $i < length($f); $i++) {
-	my $c = substr($f, $i, 1);
-	$n = ($c eq '/') ? 0 : $n+1;
-	$nmax = ($n > $nmax) ? $n : $nmax;
-    }
-    return 0 if ($nmax > 100);
+	# Make sure we can create a filename after adding .bz2 or similar.
+	# We can't use the obvious regexp here, because regexps operate on
+	# characters, not bytes.  The limit of 100 is semi-arbitrary, but
+	# we shouldn't need filenames that long.
+	my $n = 0;
+	my $nmax = 0;
+	for (my $i = 0; $i < length($f); $i++) {
+		my $c = substr($f, $i, 1);
+		$n = ($c eq '/') ? 0 : $n+1;
+		$nmax = ($n > $nmax) ? $n : $nmax;
+	}
+	return 0 if ($nmax > 100);
 
-    return 1;
+	return 1;
 }
 
 # Clean up a filename so that it is more likely to pass the
@@ -164,474 +164,474 @@ sub is_valid_filename($)
 # caught by is_valid_filename().
 sub canonicalize_path($;$)
 {
-    my($file, $root) = @_;
+	my($file, $root) = @_;
 
-    $root = '/' unless defined($root);
+	$root = '/' unless defined($root);
 
-    my $tail = '';
-    if ($root =~ m:^(.*/)([^/]+)$:) {
-	$root = $1;
-	$tail = $2;
-    }
-
-    if ($root !~ m:^/: || $root !~ m:/$:) {
-	die "$0: internal error: non-canonical root\n";
-    }
-
-    if ($file !~ m:^/:) {
-	$file = $root . $file;
-    }
-    if ($file =~ m:/$:) {
-	$file .= $tail;
-    }
-
-    my @path = ();
-    my $wasspc = 1;
-    # The -1 argument to split means "preserve trailing empty fields"
-    foreach my $s (split(/\//, $file, -1)) {
-	if ($s eq '' || $s eq '.') {
-	    $wasspc = 1;
-	} elsif ($s eq '..') {
-	    # If this ran off the root, error
-	    return undef if (!defined(pop(@path)));
-	    $wasspc = 1;
-	} else {
-	    push(@path, $s);
-	    $wasspc = 0;
+	my $tail = '';
+	if ($root =~ m:^(.*/)([^/]+)$:) {
+		$root = $1;
+		$tail = $2;
 	}
-    }
 
-    # If this ended in a special component, error
-    return undef if ($wasspc);
+	if ($root !~ m:^/: || $root !~ m:/$:) {
+		die "$0: internal error: non-canonical root\n";
+	}
 
-    # The initial '' forces the result to begin with a slash
-    return join('/', '', @path);
+	if ($file !~ m:^/:) {
+		$file = $root . $file;
+	}
+	if ($file =~ m:/$:) {
+		$file .= $tail;
+	}
+
+	my @path = ();
+	my $wasspc = 1;
+	# The -1 argument to split means "preserve trailing empty fields"
+	foreach my $s (split(/\//, $file, -1)) {
+		if ($s eq '' || $s eq '.') {
+			$wasspc = 1;
+		} elsif ($s eq '..') {
+			# If this ran off the root, error
+			return undef if (!defined(pop(@path)));
+			$wasspc = 1;
+		} else {
+			push(@path, $s);
+			$wasspc = 0;
+		}
+	}
+
+	# If this ended in a special component, error
+	return undef if ($wasspc);
+
+	# The initial '' forces the result to begin with a slash
+	return join('/', '', @path);
 }
 
 # Parse global options
 sub parse_global_options()
 {
-    while (scalar @ARGV && $ARGV[0] =~ /^-/) {
-	my $arg = shift(@ARGV);
+	while (scalar @ARGV && $ARGV[0] =~ /^-/) {
+		my $arg = shift(@ARGV);
 
-	if ($arg eq '-b' || $arg eq '--batch') {
-	    $opt{'batch'} = 1;
-	} elsif ($arg eq '-e' || $arg eq '--rsh' || $arg eq '--ssh') {
-	    $opt{'rsh'} = shift(@ARGV);
-	} elsif ($arg =~ /^--rsh=(.+)$/) {
-	    $opt{'rsh'} = $1;
-	} elsif ($arg eq '-o' || $arg eq '--host') {
-	    $opt{'host'} = shift(@ARGV);
-	} elsif ($arg =~ /^--host=(.+)$/) {
-	    $opt{'host'} = $1;
-	} elsif ($arg eq '-v' || $arg eq '--verbose') {
-	    $opt{'verbose'}++;
-	} elsif ($arg eq '-h' || $arg eq '--help') {
-	    usage(0);
-	} else {
-	    die "$0: unknown option: $arg\n";
+		if ($arg eq '-b' || $arg eq '--batch') {
+			$opt{'batch'} = 1;
+		} elsif ($arg eq '-e' || $arg eq '--rsh' || $arg eq '--ssh') {
+			$opt{'rsh'} = shift(@ARGV);
+		} elsif ($arg =~ /^--rsh=(.+)$/) {
+			$opt{'rsh'} = $1;
+		} elsif ($arg eq '-o' || $arg eq '--host') {
+			$opt{'host'} = shift(@ARGV);
+		} elsif ($arg =~ /^--host=(.+)$/) {
+			$opt{'host'} = $1;
+		} elsif ($arg eq '-v' || $arg eq '--verbose') {
+			$opt{'verbose'}++;
+		} elsif ($arg eq '-h' || $arg eq '--help') {
+			usage(0);
+		} else {
+			die "$0: unknown option: $arg\n";
+		}
 	}
-    }
 }
 
 # Encode a string
 sub url_encode($)
 {
-    my($s) = @_;
+	my($s) = @_;
 
-    # Hack to encode an empty string
-    return '%' if ($s eq '');
+	# Hack to encode an empty string
+	return '%' if ($s eq '');
 
-    my $o = '';
+	my $o = '';
 
-    foreach my $c (unpack("C*", $s)) {
-	if ($c > 32 && $c < 126 && $c != 37 && $c != 43) {
-	    $o .= chr($c);
-	} elsif ($c == 32) {
-	    $o .= '+';
-	} else {
-	    $o .= sprintf("%%%02X", $c);
+	foreach my $c (unpack("C*", $s)) {
+		if ($c > 32 && $c < 126 && $c != 37 && $c != 43) {
+			$o .= chr($c);
+		} elsif ($c == 32) {
+			$o .= '+';
+		} else {
+			$o .= sprintf("%%%02X", $c);
+		}
 	}
-    }
 
-    return $o;
+	return $o;
 }
 
 # Configure the output stream
 sub setup_output()
 {
-    # In batch mode, we dump the output to stdout so the user can
-    # aggregate it best they wish
-    unless ($opt{'batch'}) {
-	if ($opt{'rsh'} !~ /^([-a-zA-Z0-9._=\@:\s]+)$/) {
-	    die "$0: suspicious KUP_RSH command (if this is bogus let hpa know)\n";
+	# In batch mode, we dump the output to stdout so the user can
+	# aggregate it best they wish
+	unless ($opt{'batch'}) {
+		if ($opt{'rsh'} !~ /^([-a-zA-Z0-9._=\@:\s\/]+)$/) {
+			die "$0: suspicious KUP_RSH setting\n";
+		}
+		my $rsh = $1;
+		if ($opt{'host'} !~ /^([-a-zA-Z0-9._\@]+)$/) {
+			die "$0: suspicious KUP_HOST\n";
+		}
+		$rsh .= " \Q$1";
+		open(STDOUT, '|-', $rsh)
+			or die "$0: cannot execute rsh command ", $rsh, "\n";
 	}
-	my $rsh = $1;
-	if ($opt{'host'} !~ /^([-a-zA-Z0-9._\@]+)$/) {
-	    die "$0: suspicious KUP_HOST (if this is bogus let hpa know)\n";
-	}
-	$rsh .= " \Q$1";
-	open(STDOUT, '|-', $rsh)
-	    or die "$0: cannot execute rsh command ", $rsh, "\n";
-    }
-    binmode(STDOUT);
+	binmode(STDOUT);
 }
 
 # Terminate the output process
 sub close_output()
 {
-    $| = 1;			# Flush STDOUT
-    unless ($opt{'batch'}) {
-	close(STDOUT);
-    }
+	$| = 1;						# Flush STDOUT
+	unless ($opt{'batch'}) {
+		close(STDOUT);
+	}
 }
 
 # Print a command to STDOUT, and if requested, to STDERR
 sub command(@)
 {
-    if ($real) {
-	my $cmd = join(' ', @_);
+	if ($real) {
+		my $cmd = join(' ', @_);
 
-	print STDERR $cmd, "\n" if ($opt{'verbose'});
-	print $cmd, "\n";
-    }
+		print STDERR $cmd, "\n" if ($opt{'verbose'});
+		print $cmd, "\n";
+	}
 }
 
 sub get_data_format($)
 {
-    my($data) = @_;
+	my($data) = @_;
 
-    my $magic2 = substr($data, 0, 2);
-    my $magic4 = substr($data, 0, 4);
-    my $magic6 = substr($data, 0, 6);
+	my $magic2 = substr($data, 0, 2);
+	my $magic4 = substr($data, 0, 4);
+	my $magic6 = substr($data, 0, 6);
 
-    my $fmt = '%';		# Meaning straight binary
+	my $fmt = '%';				# Meaning straight binary
 
-    if ($magic2 eq "\037\213") {
-	$fmt = 'gz';
-    } elsif ($magic4 =~ /^BZh[1-9]$/) {
-	# The primary bzip2 magic is so crappy, so look
-	# for the magic number of the first packet
-	# (either a compression packet or an end of file packet.)
-	# Funny enough, the magics on the packets are better
-	# than the magics on the file format, and even so
-	# they managed to pick a magic for the compression
-	# packet which has no non-ASCII bytes in it...
+	if ($magic2 eq "\037\213") {
+		$fmt = 'gz';
+	} elsif ($magic4 =~ /^BZh[1-9]$/) {
+		# The primary bzip2 magic is so crappy, so look
+		# for the magic number of the first packet
+		# (either a compression packet or an end of file packet.)
+		# Funny enough, the magics on the packets are better
+		# than the magics on the file format, and even so
+		# they managed to pick a magic for the compression
+		# packet which has no non-ASCII bytes in it...
 
-	my $submagic = substr($data, 4, 6);
+		my $submagic = substr($data, 4, 6);
 
-	if ($submagic eq "\x31\x41\x59\x26\x53\x59" ||
-	    $submagic eq "\x17\x72\x45\x38\x50\x90") {
-	    $fmt = 'bz2';
+		if ($submagic eq "\x31\x41\x59\x26\x53\x59" ||
+			$submagic eq "\x17\x72\x45\x38\x50\x90") {
+			$fmt = 'bz2';
+		}
+	} elsif ($magic6 eq "\x{fd}7zXZ\0") {
+		$fmt = 'xz';
 	}
-    } elsif ($magic6 eq "\x{fd}7zXZ\0") {
-	$fmt = 'xz';
-    }
 
-    return $fmt;
+	return $fmt;
 }
 
 sub cat_file($$$)
 {
-    my($cmd, $file, $fmt) = @_;
+	my($cmd, $file, $fmt) = @_;
 
-    my $data;
-    open($data, '<', $file)
-	or die "$0: cannot open: $file: $!\n";
-    if (! -f $data) {
-	die "$0: not a plain file: $file\n";
-    }
-    my $size = -s _;
+	my $data;
+	open($data, '<', $file)
+		or die "$0: cannot open: $file: $!\n";
+	if (! -f $data) {
+		die "$0: not a plain file: $file\n";
+	}
+	my $size = -s _;
 
-    binmode($data);
+	binmode($data);
 
-    if ($real) {
-	if ($size < 2) {
-	    # Must be a plain file
-	    $fmt = '%';
+	if ($real) {
+		if ($size < 2) {
+			# Must be a plain file
+			$fmt = '%';
+		}
+
+		if (defined($fmt)) {
+			command($cmd, $size, $fmt);
+		}
+
+		my $blk;
+		my $len;
+
+		while ($size) {
+			$len = ($size < $blksiz) ? $size : $blksiz;
+			$len = read($data, $blk, $len);
+
+			if (!$len) {
+				die "$0: premature end of data (file changed?): $file\n";
+			}
+
+			if (!defined($fmt)) {
+				$fmt = get_data_format($blk);
+				command($cmd, $size, $fmt);
+			}
+
+			print $blk;
+			$size -= $len;
+		}
 	}
 
-	if (defined($fmt)) {
-	    command($cmd, $size, $fmt);
-	}
-
-	my $blk;
-	my $len;
-
-	while ($size) {
-	    $len = ($size < $blksiz) ? $size : $blksiz;
-	    $len = read($data, $blk, $len);
-
-	    if (!$len) {
-		die "$0: premature end of data (file changed?): $file\n";
-	    }
-
-	    if (!defined($fmt)) {
-		$fmt = get_data_format($blk);
-		command($cmd, $size, $fmt);
-	    }
-
-	    print $blk;
-	    $size -= $len;
-	}
-    }
-
-    close($data);
+	close($data);
 }
 
 # PUT command
 sub cmd_put()
 {
-    my $file = shift @args;
-    my $file_tail = undef;
+	my $file = shift @args;
+	my $file_tail = undef;
 
-    if ($file eq '-t' || $file eq '--tar') {
-	# tar hack
+	if ($file eq '-t' || $file eq '--tar') {
+		# tar hack
 
-	my $remote_tree = shift @args;
-	my $prefix = '';
+		my $remote_tree = shift @args;
+		my $prefix = '';
 
-	if ($remote_tree eq '-p' || $remote_tree eq '--prefix') {
-	    $prefix = shift @args;
-	    $remote_tree = shift @args;
-	} elsif ($remote_tree =~ /^--prefix=(.+)$/) {
-	    $prefix = $1;
-	    $remote_tree = shift @args;
+		if ($remote_tree eq '-p' || $remote_tree eq '--prefix') {
+			$prefix = shift @args;
+			$remote_tree = shift @args;
+		} elsif ($remote_tree =~ /^--prefix=(.+)$/) {
+			$prefix = $1;
+			$remote_tree = shift @args;
+		}
+
+		my $ref = shift(@args);
+
+		if (!defined($ref)) {
+			usage(1);
+		}
+
+		my $xrt = $remote_tree;
+		$remote_tree = canonicalize_path($remote_tree);
+		if (!is_valid_filename($remote_tree) || $remote_tree !~ /\.git$/) {
+			die "$0: invalid path name for git tree: $xrt\n";
+		}
+		if (!is_clean_string($ref)) {
+			die "$0: invalid ref: $ref\n";
+		}
+
+		command('TAR', url_encode($remote_tree),
+				url_encode($ref), url_encode($prefix));
+	} elsif ($file eq '-d' || $file eq '--diff') {
+		# diff hack
+
+		my $remote_tree = shift @args;
+		my $prefix = '';
+
+		my $ref1 = shift(@args);
+		my $ref2 = shift(@args);
+
+		if (!defined($ref2)) {
+			usage(1);
+		}
+
+		my $xrt = $remote_tree;
+		$remote_tree = canonicalize_path($remote_tree);
+		if (!is_valid_filename($remote_tree) || $remote_tree !~ /\.git$/) {
+			die "$0: invalid path name for git tree: $xrt\n";
+		}
+		if (!is_clean_string($ref1)) {
+			die "$0: invalid ref: $ref1\n";
+		}
+		if (!is_clean_string($ref2)) {
+			die "$0: invalid ref: $ref2\n";
+		}
+
+		command('DIFF', url_encode($remote_tree), url_encode($ref1),
+				url_encode($ref2));
+	} elsif ($file =~ /^-/) {
+		die "$0: unknown option to put command: $file\n";
+	} else {
+		# Plain data blob.  We don't actively attempt to compress it
+		# since ssh usually has a layer of compression, but if it is
+		# already a compressed file we send it as-is and let the
+		# server decompress it.
+
+		cat_file('DATA', $file, undef);
+
+		# Get the local filename without directory
+		my($vol, $dir);
+		($vol, $dir, $file_tail) = File::Spec->splitpath($file);
 	}
 
-	my $ref = shift(@args);
+	my $sign   = shift @args;
+	my $remote = shift @args;
 
-	if (!defined($ref)) {
-	    usage(1);
+	if (!defined($remote)) {
+		usage(1);
 	}
 
-	my $xrt = $remote_tree;
-	$remote_tree = canonicalize_path($remote_tree);
-	if (!is_valid_filename($remote_tree) || $remote_tree !~ /\.git$/) {
-	    die "$0: invalid path name for git tree: $xrt\n";
+	# This allows the user to not specify the filename if it is
+	# the same as on the local filesystem by ending the pathname
+	# with a slash
+	if ($remote =~ m:/$: && defined($file_tail)) {
+		$remote .= $file_tail;
 	}
-	if (!is_clean_string($ref)) {
-	    die "$0: invalid ref: $ref\n";
-	}
-
-	command('TAR', url_encode($remote_tree),
-		url_encode($ref), url_encode($prefix));
-    } elsif ($file eq '-d' || $file eq '--diff') {
-	# diff hack
-
-	my $remote_tree = shift @args;
-	my $prefix = '';
-
-	my $ref1 = shift(@args);
-	my $ref2 = shift(@args);
-
-	if (!defined($ref2)) {
-	    usage(1);
+	
+	my $xrt = $remote;
+	$remote = canonicalize_path($remote);
+	if (!is_valid_filename($remote)) {
+		die "$0: invalid pathname: $xrt\n";
 	}
 
-	my $xrt = $remote_tree;
-	$remote_tree = canonicalize_path($remote_tree);
-	if (!is_valid_filename($remote_tree) || $remote_tree !~ /\.git$/) {
-	    die "$0: invalid path name for git tree: $xrt\n";
-	}
-	if (!is_clean_string($ref1)) {
-	    die "$0: invalid ref: $ref1\n";
-	}
-	if (!is_clean_string($ref2)) {
-	    die "$0: invalid ref: $ref2\n";
+	if ($remote =~ /\.sign$/) {
+		die "$0: target filename cannot end in .sign\n";
 	}
 
-	command('DIFF', url_encode($remote_tree), url_encode($ref1),
-		url_encode($ref2));
-    } elsif ($file =~ /^-/) {
-	die "$0: unknown option to put command: $file\n";
-    } else {
-	# Plain data blob.  We don't actively attempt to compress it
-	# since ssh usually has a layer of compression, but if it is
-	# already a compressed file we send it as-is and let the
-	# server decompress it.
+	# DWIM: .bz2, .xz -> .gz
+	$remote =~ s/\.(bz2|xz)$/.gz/;
 
-	cat_file('DATA', $file, undef);
-
-	# Get the local filename without directory
-	my($vol, $dir);
-	($vol, $dir, $file_tail) = File::Spec->splitpath($file);
-    }
-
-    my $sign   = shift @args;
-    my $remote = shift @args;
-
-    if (!defined($remote)) {
-	usage(1);
-    }
-
-    # This allows the user to not specify the filename if it is
-    # the same as on the local filesystem by ending the pathname
-    # with a slash
-    if ($remote =~ m:/$: && defined($file_tail)) {
-	$remote .= $file_tail;
-    }
-    
-    my $xrt = $remote;
-    $remote = canonicalize_path($remote);
-    if (!is_valid_filename($remote)) {
-	die "$0: invalid pathname: $xrt\n";
-    }
-
-    if ($remote =~ /\.sign$/) {
-	die "$0: target filename cannot end in .sign\n";
-    }
-
-    # DWIM: .bz2, .xz -> .gz
-    $remote =~ s/\.(bz2|xz)$/.gz/;
-
-    cat_file('SIGN', $sign, undef);
-    command('PUT', url_encode($remote));
+	cat_file('SIGN', $sign, undef);
+	command('PUT', url_encode($remote));
 }
 
 # MKDIR command
 sub cmd_mkdir()
 {
-    my $remote = shift @args;
+	my $remote = shift @args;
 
-    if (!defined($remote)) {
-	usage(1);
-    }
+	if (!defined($remote)) {
+		usage(1);
+	}
 
-    my $xrt = $remote;
-    $remote = canonicalize_path($remote);
-    if (!is_valid_filename($remote)) {
-	die "$0: invalid pathname: $xrt\n";
-    }
+	my $xrt = $remote;
+	$remote = canonicalize_path($remote);
+	if (!is_valid_filename($remote)) {
+		die "$0: invalid pathname: $xrt\n";
+	}
 
-    if ($remote =~ /\.(sign|gz|bz2|xz)$/) {
-	die "$0: a directory name cannot end in .sign, .gz, .bz2, .xz\n";
-    }
+	if ($remote =~ /\.(sign|gz|bz2|xz)$/) {
+		die "$0: a directory name cannot end in .sign, .gz, .bz2, .xz\n";
+	}
 
-    command('MKDIR', url_encode($remote));
+	command('MKDIR', url_encode($remote));
 }
 
 # DELETE command
 sub cmd_delete()
 {
-    my $remote = shift @args;
+	my $remote = shift @args;
 
-    if (!defined($remote)) {
-	usage(1);
-    }
+	if (!defined($remote)) {
+		usage(1);
+	}
 
-    my $xrt = $remote;
-    $remote = canonicalize_path($remote);
-    if (!is_valid_filename($remote)) {
-	die "$0: invalid pathname: $xrt\n";
-    }
+	my $xrt = $remote;
+	$remote = canonicalize_path($remote);
+	if (!is_valid_filename($remote)) {
+		die "$0: invalid pathname: $xrt\n";
+	}
 
-    if ($remote =~ /\.sign$/) {
-	die "$0: cannot delete .sign files directly\n";
-    }
+	if ($remote =~ /\.sign$/) {
+		die "$0: cannot delete .sign files directly\n";
+	}
 
-    # DWIM: .bz2, .xz -> .gz
-    $remote =~ s/\.(bz2|xz)$/.gz/;
+	# DWIM: .bz2, .xz -> .gz
+	$remote =~ s/\.(bz2|xz)$/.gz/;
 
-    command('DELETE', url_encode($remote));
+	command('DELETE', url_encode($remote));
 }
 
 # MOVE or LINK command
 sub cmd_move_link($)
 {
-    my($cmd) = @_;
+	my($cmd) = @_;
 
-    my $from = shift @args;
-    my $to   = shift @args;
+	my $from = shift @args;
+	my $to   = shift @args;
 
-    if (!defined($to)) {
-	usage(1);
-    }
+	if (!defined($to)) {
+		usage(1);
+	}
 
-    my $xrt = $from;
-    $from = canonicalize_path($from);
-    if (!is_valid_filename($from)) {
-	die "$0: invalid pathname: $xrt\n";
-    }
+	my $xrt = $from;
+	$from = canonicalize_path($from);
+	if (!is_valid_filename($from)) {
+		die "$0: invalid pathname: $xrt\n";
+	}
 
-    $xrt = $to;
-    $to = canonicalize_path($to, $from);
-    if (!is_valid_filename($to)) {
-	die "$0: invalid pathname: $xrt\n";
-    }
+	$xrt = $to;
+	$to = canonicalize_path($to, $from);
+	if (!is_valid_filename($to)) {
+		die "$0: invalid pathname: $xrt\n";
+	}
 
-    if ($from =~ /\.sign$/ || $to =~ /\.sign$/) {
-	die "$0: cannot explicitly move .sign files\n";
-    }
-    if ($from =~ /\.(gz|bz2|xz)$/ && $to =~ /\.(gz|bz2|xz)$/) {
-	$from =~ s/\.(bz2|xz)$/.gz/;
-	$to   =~ s/\.(bz2|xz)$/.gz/;
-    } elsif ($from =~ /\.(gz|bz2|xz)$/ || $to =~ /\.(gz|bz2|xz)$/) {
-	die "$0: cannot move to or from compressed filenames\n";
-    }
+	if ($from =~ /\.sign$/ || $to =~ /\.sign$/) {
+		die "$0: cannot explicitly move .sign files\n";
+	}
+	if ($from =~ /\.(gz|bz2|xz)$/ && $to =~ /\.(gz|bz2|xz)$/) {
+		$from =~ s/\.(bz2|xz)$/.gz/;
+		$to   =~ s/\.(bz2|xz)$/.gz/;
+	} elsif ($from =~ /\.(gz|bz2|xz)$/ || $to =~ /\.(gz|bz2|xz)$/) {
+		die "$0: cannot move to or from compressed filenames\n";
+	}
 
-    if ($from eq $to) {
-	die "$0: moving filename to self: $from\n";
-    }
+	if ($from eq $to) {
+		die "$0: moving filename to self: $from\n";
+	}
 
-    command($cmd, url_encode($from), url_encode($to));
+	command($cmd, url_encode($from), url_encode($to));
 }
 
 # DIR command (supports arbitrary number of arguments)
 sub cmd_dir()
 {
-    while (defined($args[0]) && $args[0] ne '--') {
-	my $d = shift @args;
-	$d =~ s:/$::g;
-	if ($d ne '') {
-	    my $xrt = $d;
-	    $d = canonicalize_path($d);
-	    if (!is_valid_filename($d)) {
-		die "$0: invalid pathname: $xrt\n";
-	    }
-	}
-	$d .= '/';
+	while (defined($args[0]) && $args[0] ne '--') {
+		my $d = shift @args;
+		$d =~ s:/$::g;
+		if ($d ne '') {
+			my $xrt = $d;
+			$d = canonicalize_path($d);
+			if (!is_valid_filename($d)) {
+				die "$0: invalid pathname: $xrt\n";
+			}
+		}
+		$d .= '/';
 
-	command('DIR', $d);
-    }
+		command('DIR', $d);
+	}
 }
 
 # Process commands
 sub process_commands()
 {
-    while (1) {
-	my $cmd = shift(@args);
+	while (1) {
+		my $cmd = shift(@args);
 
-	if (!defined($cmd)) {
-	    usage(1);
+		if (!defined($cmd)) {
+			usage(1);
+		}
+
+		$cmd = "\L${cmd}";
+
+		if ($cmd eq 'put') {
+			cmd_put();
+		} elsif ($cmd eq 'mkdir') {
+			cmd_mkdir();
+		} elsif ($cmd eq 'move' || $cmd eq 'mv') {
+			cmd_move_link('MOVE');
+		} elsif ($cmd eq 'link' || $cmd eq 'ln') {
+			cmd_move_link('LINK');
+		} elsif ($cmd eq 'delete' || $cmd eq 'del' || $cmd eq 'rm') {
+			cmd_delete();
+		} elsif ($cmd eq 'ls' || $cmd eq 'dir') {
+			cmd_dir();
+		} else {
+			die "$0: unknown command: $cmd\n";
+		}
+
+		my $sep = shift(@args);
+
+		last if (!defined($sep)); # End of command line
+
+		if ($sep ne '--') {
+			die "$0: garbage at end of $cmd command\n";
+		}
 	}
-
-	$cmd = "\L${cmd}";
-
-	if ($cmd eq 'put') {
-	    cmd_put();
-	} elsif ($cmd eq 'mkdir') {
-	    cmd_mkdir();
-	} elsif ($cmd eq 'move' || $cmd eq 'mv') {
-	    cmd_move_link('MOVE');
-	} elsif ($cmd eq 'link' || $cmd eq 'ln') {
-	    cmd_move_link('LINK');
-	} elsif ($cmd eq 'delete' || $cmd eq 'del' || $cmd eq 'rm') {
-	    cmd_delete();
-	} elsif ($cmd eq 'ls' || $cmd eq 'dir') {
-	    cmd_dir();
-	} else {
-	    die "$0: unknown command: $cmd\n";
-	}
-
-	my $sep = shift(@args);
-
-	last if (!defined($sep)); # End of command line
-
-	if ($sep ne '--') {
-	    die "$0: garbage at end of $cmd command\n";
-	}
-    }
 }
 
 # Main program
@@ -654,3 +654,5 @@ process_commands();
 close_output();
 
 exit 0;
+
+# vim: noet

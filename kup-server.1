@@ -1,0 +1,104 @@
+.\" -----------------------------------------------------------------------
+.\"
+.\"   Copyright 2011 Linux Foundation; author: Konstantin Ryabitsev
+.\"
+.\"   This program is free software; you can redistribute it and/or
+.\"   modify it under the terms of the GNU General Public License as
+.\"   published by the Free Software Foundation, Inc.; either version 2
+.\"   of the License, or (at your option) any later version;
+.\"   incorporated herein by reference.
+.\"
+.\" -----------------------------------------------------------------------
+.TH KUP-SERVER "1" "2011" "kernel.org upload server utility" "kernel.org"
+.SH NAME
+kup-server \- kernel.org upload server utility
+.SH DESCRIPTION
+.PP
+The program
+.B kup-server
+is expected to be the receiver of an ssh shell, configured with the
+following or similar options in ~/.ssh/authorized_keys:
+.PP
+.RS
+command="/usr/bin/kup-server",no-agent-forwarding,no-port-forwarding,no-pty,no-user-rc,no-X11-forwarding ssh-rsa AAAA[...]
+.RE
+.PP
+Each user should have their own UID, as Unix user permissions are used
+for specific tree access control. On the client side, a corresponding
+client-side utility
+.BR kup
+is used to initiate the connection and perform the uploads.
+.SH GLOBAL CONFIG
+.PP
+The configuration file for 
+.B kup-server
+is located in /etc/kup/kup-server.cfg and has the following options:
+.TP
+\fB[paths]\fP
+All paths in this section should be disjoint. Do not combine any of them
+into one directory.
+.TP
+\fBdata_path\fP = \fI/var/lib/kup/pub\fP
+Path for public consumption, e.g. served via http or rsync.
+.TP
+\fBgit_path\fP = \fI/var/lib/git\fP
+This is the path where git trees (for the TAR and DIFF options) are
+available.  Those should be readonly for the uploaders.
+.TP
+\fBlock_file\fP = \fI/var/run/kup/lock\fP
+A common lock file for data_path.  No program should modify the
+content in data_path without holding an flock on this file.  Should
+be readonly for the uploaders.
+.TP
+\fBtmp_path\fP = \fI/var/lib/kup/tmp\fP
+tmp_path can be either:
+.PP
+.RS
+1. a directory writable by every user and with the sticky bit set
+(typically mode 1777 or 1770).  In that case, DO NOT end the path
+with a slash, or:
+.PP
+2. A directory containing an empty directory for each user (named for
+that user), owned by that user and mode 0700. In this case, DO end
+the path with a slash.
+.PP
+In either case, this directory tree 
+.B MUST
+be on the same filesystem as \fBdata_path\fP, since the script expects tocreate files in this directory and rename() them into data_path.
+.RE
+.TP
+\fBpgp_path\fP = \fI/var/lib/kup/pgp\fP
+A directory containing a GnuPG public keyring for each user, named
+<user>.gpg and readable (but not writable) by that user.
+.PP
+.TP
+\fB[limits]\fP
+All sizes are in bytes, all times in seconds.
+.TP
+\fBmax_data\fP = \fI8589934592\fP
+Max size of uploaded data.
+.TP
+\fBbufsiz\fP = \fI262144\fP
+Buffer size when reading data.
+.TP
+\fBtimeout_command\fP = \fI30\fP
+How long to wait for a command to time out.
+.TP
+\fBtimeout_data\fP = \fI300\fP
+Must read at least bufsiz bytes in this timespan.
+.TP
+\fBtimeout_compress\fP = \fI900\fP
+Uncompressing tarballs must take at most this long.
+.SH AUTHOR
+Written by H. Peter Anvin <hpa@zytor.com>.
+.SH COPYRIGHT
+Copyright \(co 2011 Intel Corporation
+.sp
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, Inc.; either version 2 of the License,
+or (at your option) any later version; incorporated herein by
+reference.  There is NO warranty; not even for MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.
+.SH "SEE ALSO"
+.BR kup (1)

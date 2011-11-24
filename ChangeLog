@@ -1,0 +1,7 @@
+2011-11-24 Konstantin Ryabitsev <mricon@kernel.org>
+	
+	* Allow slashes "/" in KUP_RSH and .kuprc/rsh setting, so it is possible
+	  to pass -i to the ssh command.
+	* Add kup-server.1 manpage.
+	* Add ChangeLog.
+	* Rewrite README to be more abouty.
