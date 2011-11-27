@@ -119,7 +119,7 @@ my $max_data = int($cfg->param('limits.max_data'));
 my $bufsiz   = int($cfg->param('limits.bufsiz'));
 
 my $timeout_command  = int($cfg->param('limits.timeout_command'));
-my $timeout_dat      = int($cfg->param('limits.timeout_data'));
+my $timeout_data     = int($cfg->param('limits.timeout_data'));
 my $timeout_compress = int($cfg->param('limits.timeout_compress'));
 
 # Make sure the user can't create insanely large files
@@ -641,7 +641,7 @@ sub make_compressed_data()
 			if ($tarsize gt 26214400) {
 				$| = 1;
 				printf "%s complete: %u bytes (%d%% original size)\n", $e, 
-					$tarsize, $zpc;
+					$zsize, $zpc;
 			}
 
 
