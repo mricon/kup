@@ -576,13 +576,13 @@ sub make_compressed_data()
 	my %workers;
 	my $nworkers = 0;
 
-    my $tarsize = -s $tmpdir.'/data';
+	my $tarsize = -s $tmpdir.'/data';
 
-    if ($tarsize gt 26214400) {
-        # Only warn when file size is over 25MB
-        printf "Compressing %u bytes into %s, be patient...\n", $tarsize,
-            (join " ", keys(%zformats));
-    }
+	if ($tarsize gt 26214400) {
+		# Only warn when file size is over 25MB
+		printf "Compressing %u bytes into %s, be patient...\n", $tarsize,
+			(join " ", keys(%zformats));
+	}
 
 	foreach my $e (keys(%zformats)) {
 		my @c = ($zformats{$e}, '-9');
@@ -635,14 +635,14 @@ sub make_compressed_data()
 				fatal("Failed to compress output data");
 			}
 
-            my $zsize = -s $tmpdir.'/data'.$e;
-            my $zpc = int($zsize / $tarsize * 100);
+			my $zsize = -s $tmpdir.'/data'.$e;
+			my $zpc = int($zsize / $tarsize * 100);
 
-            if ($tarsize gt 26214400) {
-                $| = 1;
-                printf "%s complete: %u bytes (%d%% original size)\n", $e, 
-                    $tarsize, $zpc;
-            }
+			if ($tarsize gt 26214400) {
+				$| = 1;
+				printf "%s complete: %u bytes (%d%% original size)\n", $e, 
+					$tarsize, $zpc;
+			}
 
 
 			syslog(LOG_DEBUG, "%s compression: %u -> %u bytes (%d%%)",
@@ -1201,3 +1201,5 @@ while (defined($line = get_command())) {
 
 syslog(LOG_NOTICE, "Session completed successfully");
 exit 0;
+
+#vim: noet
