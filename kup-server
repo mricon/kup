@@ -115,12 +115,12 @@ my $lock_file = $cfg->param('paths.lock_file');
 my $tmp_path  = $cfg->param('paths.tmp_path');
 my $pgp_path  = $cfg->param('paths.pgp_path');
 
-my $max_data  = int($cfg->param('limits.max_data'));
-my $bufsiz	= int($cfg->param('limits.bufsiz'));
+my $max_data = int($cfg->param('limits.max_data'));
+my $bufsiz   = int($cfg->param('limits.bufsiz'));
 
-my $timeout_command		= int($cfg->param('limits.timeout_command'));
-my $timeout_data		= int($cfg->param('limits.timeout_data'));
-my $timeout_compress		= int($cfg->param('limits.timeout_compress'));
+my $timeout_command  = int($cfg->param('limits.timeout_command'));
+my $timeout_dat      = int($cfg->param('limits.timeout_data'));
+my $timeout_compress = int($cfg->param('limits.timeout_compress'));
 
 # Make sure the user can't create insanely large files
 setrlimit(RLIMIT_FSIZE, $max_data, $max_data);
@@ -576,6 +576,14 @@ sub make_compressed_data()
 	my %workers;
 	my $nworkers = 0;
 
+    my $tarsize = -s $tmpdir.'/data';
+
+    if ($tarsize gt 26214400) {
+        # Only warn when file size is over 25MB
+        printf "Compressing %u bytes into %s, be patient...\n", $tarsize,
+            (join " ", keys(%zformats));
+    }
+
 	foreach my $e (keys(%zformats)) {
 		my @c = ($zformats{$e}, '-9');
 
@@ -626,8 +634,19 @@ sub make_compressed_data()
 				}
 				fatal("Failed to compress output data");
 			}
-			syslog(LOG_DEBUG, "%s compression: %u -> %u bytes",
-				   $e, -s $tmpdir.'/data', -s $tmpdir.'/data'.$e);
+
+            my $zsize = -s $tmpdir.'/data'.$e;
+            my $zpc = int($zsize / $tarsize * 100);
+
+            if ($tarsize gt 26214400) {
+                $| = 1;
+                printf "%s complete: %u bytes (%d%% original size)\n", $e, 
+                    $tarsize, $zpc;
+            }
+
+
+			syslog(LOG_DEBUG, "%s compression: %u -> %u bytes (%d%%)",
+				   $e, $tarsize, $zsize, $zpc);
 
 			$nworkers--;
 		}
