@@ -628,17 +628,37 @@ sub make_compressed_data()
 	# STDERR needs to be flushed
 	STDERR->autoflush(1);
 
+	# A pipe to notify SIGCHLD
+	pipe(my $sigchldrd, my $sigchldwr)
+	    or fatal("Failed to create notification pipe");
+
+	local $SIG{'CHLD'} = sub {
+		syswrite($sigchldwr, "\0", 1)
+		    or fatal("Notification pipe write error");
+	};
+
+	my $waitvec = '';
+	vec($waitvec, fileno($sigchldrd),1) = 1;
+
+	my $status_wait = 2; # Frequency of status updates
+
 	while ($nworkers) {
-		sleep(2);	# Frequency of updates;
 		my $w = waitpid(-1, WNOHANG);
 		my $status = $?;
 
-		my $now = time();
-		if ($now - $start_time >= $timeout_compress) {
-			foreach my $c (keys %workers) {
-				kill('TERM', $c);
+		if ($w == 0) {
+			my $now = time();
+			if ($now - $start_time >= $timeout_compress) {
+				foreach my $c (keys %workers) {
+					kill('TERM', $c);
+				}
+				fatal("Timeout compressing output data");
 			}
-			fatal("Timeout compressing output data");
+
+			if (select(my $wvout = $waitvec, undef, undef, $status_wait) == 1) {
+				# Drain the notification pipe
+				sysread($sigchldrd, my $junk, 1);
+			}
 		}
 
 		my @ostr = ();
@@ -672,6 +692,9 @@ sub make_compressed_data()
 			$nworkers--;
 		}
 	}
+
+	close($sigchldrd);
+	close($sigchldwr);
 
 	foreach my $fd (values %infds) {
 		close($fd);
