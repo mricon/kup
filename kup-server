@@ -670,8 +670,6 @@ sub make_compressed_data()
 		}
 		print STDERR "Compressing: ", join(' ', @ostr), "\r";
 
-		next if ($w == -1);
-
 		if (defined($workers{$w})) {
 			my $e = $workers{$w};
 			undef $workers{$w};

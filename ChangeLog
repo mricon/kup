@@ -1,3 +1,7 @@
+2011-11-29 Konstantin Ryabitsev <mricon@kernel.org> - 0.3.2
+	* Give feedback during compression stage on the server, as that is 
+	  likely to take a long time for large tarballs (patch by hpa).
+
 2011-11-24 Konstantin Ryabitsev <mricon@kernel.org>
 	
 	* Allow slashes "/" in KUP_RSH and .kuprc/rsh setting, so it is possible
