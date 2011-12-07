@@ -5,23 +5,29 @@
 
 unset GPG_AGENT_INFO
 eval $(gpg-agent --daemon --quiet --no-use-standard-socket --keep-tty --keep-display --sh)
+
+if [ x"$1" = x'-u' ]; then
+    gpg_opt="-u $2"
+    shift 2
+fi
+
 for f; do
     fbare=$(echo "$f" | sed -e 's/\.[^./]*$//')
     case "$f" in
 	*.gz)
-	    gzip -cd -- "$f" | gpg --use-agent -a -b -o "$fbare".sign \
+	    gzip -cd -- "$f" | gpg $gpg_opt --use-agent -a -b -o "$fbare".sign \
 		--set-filename "$(basename "$fbare")" -
 	    ;;
 	*.bz2)
-	    bzip2 -cd -- "$f" | gpg --use-agent -a -b -o "$fbare".sign \
+	    bzip2 -cd -- "$f" | gpg $gpg_opt --use-agent -a -b -o "$fbare".sign \
 		--set-filename "$(basename "$fbare")" -
 	    ;;
 	*.xz)
-	    xz -cd -- "$f" | gpg --use-agent -a -b -o "$fbare".sign \
+	    xz -cd -- "$f" | gpg $gpg_opt --use-agent -a -b -o "$fbare".sign \
 	    	--set-filename "$(basename "$fbare")" -
 	    ;;
 	*)
-	    gpg --use-agent -a -b -o "$f".sign \
+	    gpg $gpg_opt --use-agent -a -b -o "$f".sign \
 		--set-filename "$(basename "$f")" - < "$f"
 	    ;;
     esac
