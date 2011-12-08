@@ -26,8 +26,8 @@ my $blksiz = 1024*1024;
 
 # Global options
 my %opt = (
-	'rsh'	 => 'ssh -a -x -k -T',
-	'host'	=> 'kup.kernel.org',
+	'rsh'	  => 'ssh -a -x -k -T',
+	'host'    => undef,
 	'batch'   => 0,
 	'verbose' => 0,
 	);
@@ -636,6 +636,10 @@ sub process_commands()
 
 # Main program
 parse_global_options();
+
+if (!defined($opt{'host'})) {
+	die "$0: please specify --host, KUP_HOST, or set up ~/.kuprc\n";
+}
 
 # "Dry run" pass
 $real = 0;
