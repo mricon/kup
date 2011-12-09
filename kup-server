@@ -336,8 +336,8 @@ sub percentage($$)
 {
 	my($num, $den) = @_;
 
-	my $v = eval { int(100*$num/$den); };
-	return defined($v) ? $v : 100;
+	return 100 if $num eq $den || $den eq 0;
+	return sprintf('%.1f', 100*$num/$den);
 }
 
 sub get_blob($$@)
@@ -415,7 +415,7 @@ sub get_blob($$@)
 		if ($left == 0 ?
 			($prog_perc >= 0) :				# Show 100% iff we already showed a progress bar
 			($now > $prog_time && $perc != $prog_perc)) {
-			printf STDERR "%10u [%-50s] %3u%%\r", $len, '=' x ($perc >> 1), $perc;
+			printf STDERR "%10u [%-50s] %4s%%\r", $len, '=' x ($perc >> 1), $perc;
 			$prog_perc = $perc;
 			$prog_time = $now;
 		}
@@ -579,6 +579,14 @@ sub get_sign_data(@)
 	$have_sign = 1;
 }
 
+sub term_children(@)
+{
+	my(%workers) = @_;
+	foreach my $c (keys %workers) {
+		kill('TERM', $c);
+	}
+}
+
 sub make_compressed_data()
 {
 	die if (!$have_data);
@@ -649,9 +657,8 @@ sub make_compressed_data()
 		if ($w == 0) {
 			my $now = time();
 			if ($now - $start_time >= $timeout_compress) {
-				foreach my $c (keys %workers) {
-					kill('TERM', $c);
-				}
+				print STDERR "\n";
+				term_children(%workers);
 				fatal("Timeout compressing output data");
 			}
 
@@ -665,7 +672,7 @@ sub make_compressed_data()
 		foreach my $e (sort(keys %infds)) {
 			my $fpos = sysseek($infds{$e}, 0, SEEK_CUR);
 			push(@ostr,
-				sprintf("%s:%3u%%", $e,
+				sprintf("%s:%4s%%", $e,
 					percentage($fpos, $tarsize)));
 		}
 		print STDERR "Compressing: ", join(' ', @ostr), "\r";
@@ -674,9 +681,8 @@ sub make_compressed_data()
 			my $e = $workers{$w};
 			undef $workers{$w};
 			if ($status) {
-				foreach my $c (keys %workers) {
-					kill('TERM', $c);
-				}
+				print STDERR "\n";
+				term_children(%workers);
 				fatal("Failed to compress output data");
 			}
 
@@ -684,7 +690,7 @@ sub make_compressed_data()
 
 			my $zpc = percentage($zsize, $tarsize);
 
-			syslog(LOG_DEBUG, "%s compression: %u -> %u bytes (%d%%)",
+			syslog(LOG_DEBUG, "%s compression: %u -> %u bytes (%s%%)",
 				   $e, $tarsize, $zsize, $zpc);
 
 			$nworkers--;
