@@ -25,7 +25,7 @@ compressed.
 Additionally, if the user has content from a
 .BR git (1)
 tree already on server, it is possible to reproduce the content
-server-side and therefore reducing bandwidth needs.  The user still
+server-side, thereby reducing bandwidth needs.  The user still
 has to generate the content locally and sign it.
 .SH GLOBAL OPTIONS
 .TP
@@ -33,7 +33,7 @@ has to generate the content locally and sign it.
 Instead of connecting to a remote host, output the protocol content to
 standard output.  The output from an arbitrary number of
 .B kup
-invocation can be concatenated and then sent to the server as a single
+invocations can be concatenated and then sent to the server as a single
 session.
 .TP
 \fB\-e\fP, \fB\-\-rsh, \fB\-\-ssh\fP \fIcommand\fP
@@ -64,7 +64,7 @@ compressed files are generated on the server; otherwise the content is
 stored uncompressed.
 .TP
 \fBput\fP \fIlocal_file\fP \fPsignature_file\fP \fIremote_path\fP
-Upload the file \fIlocal_file\fP with signed with
+Upload the file \fIlocal_file\fP signed with
 \fIsignature_file\fP.  \fIlocal_file\fP can be compressed with
 .BR gzip ,
 .B bzip2
@@ -79,7 +79,7 @@ Generate a tar archive file from ref \fIref\fP of git tree
 signature \fIsignature_file\fP generated locally, and place it in
 \fIremote_path\fP.
 .sp
-\fBgit archive\fP has been found to be relatively stable, and so this
+\fBgit archive\fP has been found to be relatively stable, so this
 command is relatively robust to git version changes.
 .TP
 \fBput\fP \fB\-\-diff\fP \fIremote_tree\fP \fIref1\fP \fIref2\fP \fPsignature_file\fP \fIremote_path\fP
@@ -90,7 +90,7 @@ tree \fIremote_tree\fP (using \fBgit diff-tree \-p\fP) with signature
 .sp
 The output of \fBgit diff-tree\fP has been found to vary between
 .B git
-versions, and so successful use of this command may require the same
+versions, so successful use of this command may require the same
 version of
 .B git
 locally as on the server in order to produce a valid signature.
@@ -132,7 +132,7 @@ Kup checks the presence of $HOME/.kuprc and can load the
 .B host
 and
 .B rsh
-parameters from the config file. Environment variables
+parameters from the config file. The environment variables
 .B KUP_HOST
 and
 .B KUP_RSH
