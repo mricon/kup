@@ -33,8 +33,16 @@ has to generate the content locally and sign it.
 Instead of connecting to a remote host, output the protocol content to
 standard output.  The output from an arbitrary number of
 .B kup
-invocations can be concatenated and then sent to the server as a single
-session.
+invocations can be concatenated into a single batchfile and then sent 
+to the server as a single session, e.g.: 
+.PP
+.RS
+.RS
+.nf
+cat batchfile | ssh -a -x -k -T [user@]host
+.fi
+.RE
+.RE
 .TP
 \fB\-e\fP, \fB\-\-rsh, \fB\-\-ssh\fP \fIcommand\fP
 Override the default command used to connect to the server.  The
