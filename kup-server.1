@@ -92,6 +92,29 @@ Uncompressing tarballs must take at most this long.
 .TP
 \fBtimeout_compress_cpu\fP = \fI900\fP
 Each compression command must take at most this long in CPU time.
+.PP
+.TP
+\fB[compressors]\fP
+This section allows specifying the compressors to use when creating
+compressed versions of uploaded content.
+.TP
+\fBuse\fP = \fIgz, bz2, xz\fP
+A comma-separated list of file extensions to create (minus the leading dot). 
+For each extension specified, you will need to add an extra entry to this
+section with the path to the matching gzip-compatible utility (i.e. it 
+must accept \fI-9\fP and \fI-cd\fP command-line arguments). E.g., if you 
+specified "\fIgz, bz2, xz\fP" as values in \fBuse\fP, you must add the
+following entries as well:
+.PP
+.RS
+.RS
+.nf
+gz = /bin/gzip
+bz2 = /usr/bin/bzip2
+xz = /usr/bin/xz
+.fi
+.RE
+.RE
 .SH AUTHOR
 Written by H. Peter Anvin <hpa@zytor.com>.
 .SH COPYRIGHT

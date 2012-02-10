@@ -127,13 +127,27 @@ my $timeout_compress_cpu = int($cfg->param('limits.timeout_compress_cpu'));
 # Make sure the user can't create insanely large files
 setrlimit(RLIMIT_FSIZE, $max_data, $max_data);
 
-# These programs are expected to accept the option
-# -9 for compression and -cd for decompression to stdout.
-my %zformats = (
-	'.gz'  => '/bin/gzip',
-	'.bz2' => '/usr/bin/bzip2',
-	'.xz'  => '/usr/bin/xz'
-);
+# Do we have a [compressors.use] in the config file?
+my %zformats;
+
+if (defined($cfg->param('compressors.use'))) {
+
+    foreach my $zformat ($cfg->param('compressors.use')) {
+        # Do we have a path defined?
+        if (!defined($cfg->param("compressors.${zformat}"))) {
+            fatal("Compressor ${zformat} requested, but path not specified.");
+        }
+        my $ext = '.' . $zformat;
+        $zformats{$ext} = $cfg->param("compressors.${zformat}");
+    }
+
+} else {
+	%zformats = (
+		'.gz'  => '/bin/gzip',
+		'.bz2' => '/usr/bin/bzip2',
+		'.xz'  => '/usr/bin/xz'
+	);
+}
 
 my $have_data = 0;
 my $have_sign = 0;
