@@ -1,7 +1,10 @@
-2011-12-08 Konstantin Ryabitsev <mricon@kernel.org> - master
+2012-02-13 Konstantin Ryabitsev <mricon@kernel.org> - 0.3.3
 	* Allow specifying the key to use for gpg-sign-all.
 	* Remove kup.kernel.org as the default host setting.
 	* Show 1 decimal when reporting progress in kup-server.
+	* Manpage fixes and expansions.
+	* Make mkdir recursive.
+	* Allow specifying compressors in kup-server.cfg.
 
 2011-11-29 Konstantin Ryabitsev <mricon@kernel.org> - 0.3.2
 	* Give feedback during compression stage on the server, as that is 
