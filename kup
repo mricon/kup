@@ -49,17 +49,12 @@ if (defined($cfg)) {
 	}
 }
 
-# This is a client, and so running with tainting on is a bit overly
-# paranoid.  As a result we have to explicitly untaint certain bits from
-# the environment.
-sub untaint($) {
-	my($s) = @_;
+# If anyone's ssh is somewhere other than /bin:/usr/bin, they can specify
+# where it is by setting up their .kuprc. This also lets us run with -T
+# without playing untaint tricks.
+#
+$ENV{'PATH'} = '/bin:/usr/bin';
 
-	$s =~ /^(.*)$/;
-	return $1;
-}
-
-$ENV{'PATH'} = untaint($ENV{'PATH'});
 if (defined $ENV{'KUP_RSH'}) {
 	$opt{'rsh'} = $ENV{'KUP_RSH'};
 }
