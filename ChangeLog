@@ -1,3 +1,9 @@
+2012-04-20 Konstantin Ryabitsev <mricon@kernel.org> - master
+	* Remove magic-guessing logic from kup client, as it was interfering with
+	  people's ability to upload gzipped kernel images. We're now being dumb
+	  about it -- we only rely on the extension to guess whether the server
+	  needs to uncompress the contents before verifying sig.
+
 2012-02-13 Konstantin Ryabitsev <mricon@kernel.org> - 0.3.3
 	* Allow specifying the key to use for gpg-sign-all.
 	* Remove kup.kernel.org as the default host setting.

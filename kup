@@ -292,43 +292,17 @@ sub command(@)
 	}
 }
 
-sub get_data_format($)
-{
-	my($data) = @_;
-
-	my $magic2 = substr($data, 0, 2);
-	my $magic4 = substr($data, 0, 4);
-	my $magic6 = substr($data, 0, 6);
-
-	my $fmt = '%';				# Meaning straight binary
-
-	if ($magic2 eq "\037\213") {
-		$fmt = 'gz';
-	} elsif ($magic4 =~ /^BZh[1-9]$/) {
-		# The primary bzip2 magic is so crappy, so look
-		# for the magic number of the first packet
-		# (either a compression packet or an end of file packet.)
-		# Funny enough, the magics on the packets are better
-		# than the magics on the file format, and even so
-		# they managed to pick a magic for the compression
-		# packet which has no non-ASCII bytes in it...
-
-		my $submagic = substr($data, 4, 6);
-
-		if ($submagic eq "\x31\x41\x59\x26\x53\x59" ||
-			$submagic eq "\x17\x72\x45\x38\x50\x90") {
-			$fmt = 'bz2';
-		}
-	} elsif ($magic6 eq "\x{fd}7zXZ\0") {
-		$fmt = 'xz';
-	}
-
-	return $fmt;
-}
-
 sub cat_file($$$)
 {
 	my($cmd, $file, $fmt) = @_;
+
+	if (!defined($fmt)) {
+		if ($file =~ /\.((gz|bz2|xz))$/) {
+			$fmt = $1;
+		} else {
+			$fmt = '%';
+		}
+	}
 
 	my $data;
 	open($data, '<', $file)
@@ -359,11 +333,6 @@ sub cat_file($$$)
 
 			if (!$len) {
 				die "$0: premature end of data (file changed?): $file\n";
-			}
-
-			if (!defined($fmt)) {
-				$fmt = get_data_format($blk);
-				command($cmd, $size, $fmt);
 			}
 
 			print $blk;
