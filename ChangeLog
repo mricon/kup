@@ -1,4 +1,6 @@
-2012-04-20 Konstantin Ryabitsev <mricon@kernel.org> - master
+2012-12-10 Konstantin Ryabitsev <mricon@kernel.org> - 0.3.4
+	* Calculate and log sha256sums of all uploaded files for forensic
+	  record-keeping.
 	* Remove magic-guessing logic from kup client, as it was interfering with
 	  people's ability to upload gzipped kernel images. We're now being dumb
 	  about it -- we only rely on the extension to guess whether the server

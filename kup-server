@@ -66,6 +66,8 @@ use IO::Handle;
 use Sys::Syslog qw(:standard :macros);
 use Git;
 
+use Digest::SHA;
+
 # Scrub the environment completely
 %ENV = ('PATH' => '/bin:/usr/bin',
 		'LANG' => 'C',
@@ -860,7 +862,16 @@ sub put_file(@)
 			fatal("$file: Failed to install files: $!");
 		}
 		push(@undoes, $target);
+
+		if ($e ne '.sign') {
+			# Should we make the digest algo configurable?
+			my $sha = Digest::SHA->new('sha256');
+			print STDERR "\rCalculating sha256 for ".$stem.$e;
+			$sha->addfile($target);
+			syslog(LOG_NOTICE, "sha256: %s: %s", $target, $sha->hexdigest);
+		}
 	}
+	print STDERR "...logged.\n";
 
 	unlock_tree();
 	cleanup();
