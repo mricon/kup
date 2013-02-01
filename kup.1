@@ -81,14 +81,15 @@ or
 this may reduce upload time.  The content will be stored compressed or
 uncompressed depending solely on the extension of \fIremote_path\fP.
 .TP
-\fBput\fP \fB\-\-tar\fP \fIremote_tree\fP \fIref\fP \fPsignature_file\fP \fIremote_path\fP
+\fBput\fP \fB\-\-tar\fP [\fB\-\-prefix\fP=] \fIremote_tree\fP \fIref\fP \fPsignature_file\fP \fIremote_path\fP
 Generate a tar archive file from ref \fIref\fP of git tree
 \fIremote_tree\fP (using \fBgit archive \-\-format=tar\fP) with
 signature \fIsignature_file\fP generated locally, and place it in
 \fIremote_path\fP.
 .sp
 \fBgit archive\fP has been found to be relatively stable, so this
-command is relatively robust to git version changes.
+command is relatively robust to git version changes. The \fB\-\-prefix\fP
+is passed to \fBgit archive\fP verbatim.
 .TP
 \fBput\fP \fB\-\-diff\fP \fIremote_tree\fP \fIref1\fP \fIref2\fP \fPsignature_file\fP \fIremote_path\fP
 Generate a patch file between refs \fIref1\fP and \fIref2\fP of git
@@ -152,6 +153,29 @@ SAMPLE $HOME/.kuprc:
 .nf
 host = user@kup.kernel.org
 rsh  = /usr/bin/ssh -a -x -k -T
+.fi
+.RE
+.SH EXAMPLES
+Generate a tarball locally, sign it, compress it, and upload it into /pub/foolib on the server:
+.PP
+.RS
+.nf
+git archive --format=tar --prefix=foolib-1.0/ -o foolib-1.0.tar v1.0
+gpg --clearsign foolib-1.0.tar
+bzip2 -9 foolib-1.0.tar
+kup put foolib-1.0.tar.bz2 foolib-1.0.tar.asc /pub/foolib/foolib-1.0.tar.bz2
+.fi
+.RE
+.PP
+Generate a tarball locally, sign it, then tell kup-server to generate an
+identical tarball on the server, verify the signature, and put the compressed
+results in /pub/foolib:
+.PP
+.RS
+.nf
+git archive --format=tar --prefix=foolib-1.0/ -o foolib-1.0.tar v1.0
+gpg --clearsign foolib-1.0.tar
+kup put --tar --prefix=foolib-1.0/ /repos/foolib.git v1.0 foolib-1.0.tar.asc /pub/foolib/foolib-1.0.tar.gz
 .fi
 .RE
 .SH AUTHOR
