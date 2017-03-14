@@ -1197,7 +1197,7 @@ sub do_dir(@)
 	my(@args) = @_;
 
 	if (scalar(@args) != 1) {
-		fatal("Bad DELETE command");
+		fatal("Bad DIR command");
 	}
 
 	my($dir) = @args;
