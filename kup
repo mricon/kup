@@ -28,6 +28,7 @@ my $blksiz = 1024*1024;
 my %opt = (
 	'rsh'	  => 'ssh -a -x -k -T',
 	'host'    => undef,
+	'subcmd'  => undef,
 	'batch'   => 0,
 	'verbose' => 0,
 	);
@@ -37,11 +38,15 @@ my $cfg_file = $ENV{'HOME'}.'/.kuprc';
 my $cfg = new Config::Simple($cfg_file);
 
 if (defined($cfg)) {
-	# Update %opt with cfgfile settings (only rsh and host vars)
+	# Update %opt with cfgfile settings (only rsh, subcmd, and host vars)
 	my %cfg_opt = $cfg->vars();
 
 	if (defined($cfg_opt{'default.host'})) {
 		$opt{'host'} = $cfg_opt{'default.host'};
+	}
+
+	if (defined($cfg_opt{'default.subcmd'})) {
+		$opt{'subcmd'} = $cfg_opt{'default.subcmd'};
 	}
 
 	if (defined($cfg_opt{'default.rsh'})) {
@@ -61,6 +66,9 @@ if (defined $ENV{'KUP_RSH'}) {
 if (defined $ENV{'KUP_HOST'}) {
 	$opt{'host'} = $ENV{'KUP_HOST'};
 }
+if (defined $ENV{'KUP_SUBCMD'}) {
+	$opt{'subcmd'} = $ENV{'KUP_SUBCMD'};
+}
 delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};   # Make %ENV safer
 
 # We process the command set twice, once as a dry run and one for real,
@@ -75,10 +83,11 @@ sub usage($) {
 	print STDERR "Usage: $0 [global options] command [-- command...]\n";
 	print STDERR "\n";
 	print STDERR "Global options:\n";
-	print STDERR "   -b  --batch			 Output command stream to stdout\n";
-	print STDERR "   -e  --rsh=command	   Send output to command, override KUP_RSH\n";
-	print STDERR "   -o  --host=[user@]host  Connect to [user@]host, override KUP_HOST\n";
-	print STDERR "   -v  --verbose		   Print each command to stderr as it is sent\n";
+	print STDERR "   -b  --batch            Output command stream to stdout\n";
+	print STDERR "   -e  --rsh=command      Send output to command, override KUP_RSH\n";
+	print STDERR "   -o  --host=[user@]host Connect to [user@]host, override KUP_HOST\n";
+	print STDERR "   -c  --subcmd=cmd       After connecting via ssh, issue this subcommand\n";
+	print STDERR "   -v  --verbose          Print each command to stderr as it is sent\n";
 	print STDERR "\n";
 	print STDERR "Commands:\n";
 	print STDERR "   put local_file signature remote_path\n";
@@ -219,6 +228,10 @@ sub parse_global_options()
 			$opt{'host'} = shift(@ARGV);
 		} elsif ($arg =~ /^--host=(.+)$/) {
 			$opt{'host'} = $1;
+		} elsif ($arg eq '-c' || $arg eq '--subcmd') {
+			$opt{'subcmd'} = shift(@ARGV);
+		} elsif ($arg =~ /^--subcmd=(.+)$/) {
+			$opt{'subcmd'} = $1;
 		} elsif ($arg eq '-v' || $arg eq '--verbose') {
 			$opt{'verbose'}++;
 		} elsif ($arg eq '-h' || $arg eq '--help') {
@@ -266,6 +279,13 @@ sub setup_output()
 			die "$0: suspicious KUP_HOST\n";
 		}
 		$rsh .= " \Q$1";
+		if ($opt{'subcmd'}) {
+			if ($opt{'subcmd'} !~ /^([-a-zA-Z0-9_]+)$/) {
+				die "$0: suspicious KUP_SUBCMD\n";
+			}
+			# Add the subcommand for the receiving server
+			$rsh .= " " . $opt{'subcmd'}
+		}
 		open(STDOUT, '|-', $rsh)
 			or die "$0: cannot execute rsh command ", $rsh, "\n";
 	}

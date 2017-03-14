@@ -57,6 +57,13 @@ is set by the environment variable
 .B KUP_HOST
 or if that is not set,
 \fIkup.kernel.org\fP.
+.TP
+\fB\-c\fP, \fB\-\-subcmd\fP \fIsubcommand\fP
+After establishing the ssh connection, issue a subcommand in case the remote
+server is used in conjunction with an AuthZ tool like gitolite. Can also be set
+using the env variable
+.B KUP_SUBCMD
+or if not set, no subcommand will be used (default kup-server behavior).
 .SH COMMANDS
 A series of commands can be specified on a single command line,
 separated by a double dash argument (\fB\-\-\fP).
