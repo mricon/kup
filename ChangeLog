@@ -3,6 +3,11 @@
 	  kup is used with another authZ system relying on ssh (specifically,
 	  gitolite).
 	* Small typo fixes
+	* Change kup-server so that separate compress/decompress commands can be
+	  specified for each compressor. This allows us to use parallelizing
+	  compressors such as pigz and pixz without impacting our ability to
+	  decompress incoming tarballs.
+
 2012-12-10 Konstantin Ryabitsev <mricon@kernel.org> - 0.3.4
 	* Calculate and log sha256sums of all uploaded files for forensic
 	  record-keeping.

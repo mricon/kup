@@ -98,22 +98,22 @@ Each compression command must take at most this long in CPU time.
 This section allows specifying the compressors to use when creating
 compressed versions of uploaded content.
 .TP
-\fBuse\fP = \fIgz, bz2, xz\fP
-A comma-separated list of file extensions to create (minus the leading dot). 
-For each extension specified, you will need to add an extra entry to this
-section with the path to the matching gzip-compatible utility (i.e. it 
-must accept \fI-9\fP and \fI-cd\fP command-line arguments). E.g., if you 
-specified "\fIgz, bz2, xz\fP" as values in \fBuse\fP, you must add the
-following entries as well:
+\fBuse\fP = \fIgz, xz\fP
+A comma-separated list of file extensions to create (minus the leading dot).
+For each extension specified, you will need to add a matching section specifying
+which command and flags to use for decompression and which for compression. Make
+sure to configure the decompress command to output to stdout. E.g.:
 .PP
 .RS
-.RS
 .nf
-gz = /bin/gzip
-bz2 = /usr/bin/bzip2
-xz = /usr/bin/xz
+[gz]
+compress_command = /bin/pigz -9
+decompress_command = /bin/gzip -cd
+
+[xz]
+compress_command = /bin/xz -9 -T0
+decompress_command = /bin/xz -cd
 .fi
-.RE
 .RE
 .SH AUTHOR
 Written by H. Peter Anvin <hpa@zytor.com>.

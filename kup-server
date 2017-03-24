@@ -134,20 +134,41 @@ my %zformats;
 
 if (defined($cfg->param('compressors.use'))) {
 
-    foreach my $zformat ($cfg->param('compressors.use')) {
-        # Do we have a path defined?
-        if (!defined($cfg->param("compressors.${zformat}"))) {
-            fatal("Compressor ${zformat} requested, but path not specified.");
-        }
-        my $ext = '.' . $zformat;
-        $zformats{$ext} = $cfg->param("compressors.${zformat}");
-    }
+	foreach my $zformat ($cfg->param('compressors.use')) {
+		my $ext = '.' . $zformat;
+		# Do we have a path defined?
+		if (!defined($cfg->param("compressors.${zformat}"))) {
+			# Do we have a section with compress/decompress commands?
+			if (!defined($cfg->param("${zformat}.compress_cmd"))) {
+				fatal("Compressor ${zformat} requested, but commands not specified.");
+			}
+			$zformats{$ext} = {
+				'compress'   => $cfg->param("${zformat}.compress_cmd"),
+				'decompress' => $cfg->param("${zformat}.decompress_cmd"),
+			}
+        } else {
+			# We have old-style definition, so just add -9 and -cd to it
+			$zformats{$ext} = {
+				'compress' => $cfg->param("compressors.${zformat}") . " -9",
+				'decompress' => $cfg->param("compressors.${zformat}") . " -cd",
+			}
+		}
+	}
 
 } else {
 	%zformats = (
-		'.gz'  => '/bin/gzip',
-		'.bz2' => '/usr/bin/bzip2',
-		'.xz'  => '/usr/bin/xz'
+		'.gz'  => {
+			'compress'   => '/bin/gzip -9',
+			'decompress' => '/bin/gzip -cd',
+		},
+		'.bz2' => {
+			'compress'   => '/usr/bin/bzip2 -9',
+			'decompress' => '/usr/bin/bzip2 -cd',
+		},
+		'.xz'  => {
+			'compress' => '/usr/bin/xz -9',
+			'decompress' => '/usr/bin/xz -cd',
+		},
 	);
 }
 
@@ -370,7 +391,7 @@ sub get_blob($$@)
 
 	if ($format eq '') {
 		undef $zcmd;
-	} elsif (!defined($zcmd = $zformats{'.'.$format})) {
+	} elsif (!defined($zcmd = $zformats{'.'.$format}{'decompress'})) {
 		fatal("Unsupported compression format");
 	}
 
@@ -387,12 +408,13 @@ sub get_blob($$@)
 	binmode($outfd);
 
 	if (defined($zcmd)) {
+		my @c = split(/\s+/, $zcmd);
 		open($oldstdout, '>&', \*STDOUT) or die;
 		open(STDOUT, '>&', $outfd) or die;
 		close($outfd);
 		undef $outfd;
 
-		open($outfd, '|-', $zcmd, '-cd') or die;
+		open($outfd, '|-', @c) or die;
 		binmode($outfd);
 
 		open(STDOUT, '>&', $oldstdout) or die;
@@ -615,11 +637,7 @@ sub make_compressed_data()
 	my $tarsize = -s $tmpdir.'/data';
 
 	foreach my $e (keys(%zformats)) {
-		my @c = ($zformats{$e}, '-9');
-		if ($zformats{$e} =~ /\s+/) {
-			@c = split(/\s+/, $zformats{$e});
-			push (@c, '-9');
-		}
+		my @c = split(/\s+/, $zformats{$e}{'compress'});
 
 		sysopen($infds{$e}, $tmpdir.'/data', O_RDONLY) or
 		    fatal("Failed to open uncompressed data file");
