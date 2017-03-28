@@ -139,12 +139,12 @@ if (defined($cfg->param('compressors.use'))) {
 		# Do we have a path defined?
 		if (!defined($cfg->param("compressors.${zformat}"))) {
 			# Do we have a section with compress/decompress commands?
-			if (!defined($cfg->param("${zformat}.compress_cmd"))) {
+			if (!defined($cfg->param("${zformat}.compress_command"))) {
 				fatal("Compressor ${zformat} requested, but commands not specified.");
 			}
 			$zformats{$ext} = {
-				'compress'   => $cfg->param("${zformat}.compress_cmd"),
-				'decompress' => $cfg->param("${zformat}.decompress_cmd"),
+				'compress'   => $cfg->param("${zformat}.compress_command"),
+				'decompress' => $cfg->param("${zformat}.decompress_command"),
 			}
         } else {
 			# We have old-style definition, so just add -9 and -cd to it
