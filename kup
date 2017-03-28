@@ -285,7 +285,7 @@ sub setup_output()
 				die "$0: suspicious KUP_SUBCMD\n";
 			}
 			# Add the subcommand for the receiving server
-			$rsh .= " " . $opt{'subcmd'}
+			$rsh .= " \Q$1";
 		}
 		open(STDOUT, '|-', $rsh)
 			or die "$0: cannot execute rsh command ", $rsh, "\n";
