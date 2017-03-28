@@ -68,6 +68,8 @@ use Git;
 
 use Digest::SHA;
 
+my $VERSION = '0.3.6';
+
 # Scrub the environment completely
 %ENV = ('PATH' => '/bin:/usr/bin',
 		'LANG' => 'C',
@@ -1257,6 +1259,11 @@ sub do_dir(@)
 	STDOUT->autoflush(0);
 }
 
+sub do_info()
+{
+	print "kup-server $VERSION\n";
+}
+
 sub get_command()
 {
 	local $SIG{'ALRM'} = sub { fatal("Timeout waiting for command"); };
@@ -1306,6 +1313,8 @@ while (defined($line = get_command())) {
 		delete_path(@args);
 	} elsif ($cmd eq 'DIR') {
 		do_dir(@args);
+	} elsif ($cmd eq 'INFO') {
+		do_info();
 	} elsif ($cmd eq 'DONE') {
 		last;
 	} else {

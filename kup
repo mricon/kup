@@ -98,6 +98,7 @@ sub usage($) {
 	print STDERR "   ln|link old_path new_path\n";
 	print STDERR "   rm|del|delete old_path\n";
 	print STDERR "   ls|dir path...\n";
+	print STDERR "   info\n";
 
 	exit $err;
 }
@@ -580,6 +581,12 @@ sub cmd_dir()
 	}
 }
 
+# INFO command (no arguments)
+sub cmd_info()
+{
+	command('INFO');
+}
+
 # Process commands
 sub process_commands()
 {
@@ -604,6 +611,8 @@ sub process_commands()
 			cmd_delete();
 		} elsif ($cmd eq 'ls' || $cmd eq 'dir') {
 			cmd_dir();
+		} elsif ($cmd eq 'info') {
+			cmd_info();
 		} else {
 			die "$0: unknown command: $cmd\n";
 		}
