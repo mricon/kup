@@ -10,6 +10,16 @@ AUTHORS
 Kup was written by H. Peter Anvin <hpa@zytor.com>
 Kup is currently maintained by Konstantin Ryabitsev <mricon@kernel.org>
 
+INSTALLING
+----------
+
+No particular installation is necessary. However Kup has a few dependencies
+and will fail to start if they are not installed. Most distros have them
+already packaged. In the rare event that your distro would not provide
+them, then your distro likely has the "cpan" tool to install them :
+
+  $ sudo cpan install Config::Simple Encode File::Spec
+
 SUPPORT
 -------
 Kup is on github: https://github.com/mricon/kup
